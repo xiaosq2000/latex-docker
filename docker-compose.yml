@@ -16,12 +16,12 @@ services:
         ZATHURA_VERSION: ${ZATHURA_VERSION}
         MUPDF_VERSION: ${MUPDF_VERSION}
         ZATHURA_PDF_MUPDF_VERSION: ${ZATHURA_PDF_MUPDF_VERSION}
-    image: texlive${TEXLIVE_VERSION}-${TEXLIVE_SCHEME}-zathura:base
+    image: texlive${TEXLIVE_VERSION}-${TEXLIVE_SCHEME}:base
   latex-dev:
     build:
       network: host
       args:
-        BASE_IMAGE: texlive${TEXLIVE_VERSION}-${TEXLIVE_SCHEME}-zathura:base
+        BASE_IMAGE: texlive${TEXLIVE_VERSION}-${TEXLIVE_SCHEME}:base
         http_proxy: ${http_proxy}
         HTTP_PROXY: ${HTTP_PROXY}
         https_proxy: ${https_proxy}
@@ -34,7 +34,7 @@ services:
         TEXLAB_VERSION: ${TEXLAB_VERSION}
         TMUX_VERSION: ${TMUX_VERSION}
         DISPLAY: ${DISPLAY}
-    image: texlive${TEXLIVE_VERSION}-${TEXLIVE_SCHEME}-zathura:dev
+    image: texlive${TEXLIVE_VERSION}-${TEXLIVE_SCHEME}:dev
     container_name: latex_dev
     stdin_open: true
     tty: true
@@ -44,7 +44,6 @@ services:
       # x11 socket
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
       # dbus socket
-      - /run/user/${UID}/bus:/run/user/${UID}/bus:rw
       - /run/user/${UID}/at-spi:/run/user/${UID}/at-spi:rw
       # nvim configuration
       - ~/.config/nvim/:${HOME}/.config/nvim/:ro
@@ -52,4 +51,7 @@ services:
       - ~/.tmux.conf:${HOME}/.tmux.conf:ro
       # workspace
       - ~/notes/:${HOME}/notes/:rw
+      - ~/dev/resume/:${HOME}/resume/:rw
+      - ~/dev/notes/:${HOME}/dev/notes/:rw
+    env_file: ./.env
     restart: always

@@ -31,7 +31,7 @@ A dockerized LaTeX setup with lots of stuff, including [TexLive](https://tug.org
 
 ### 1. Setup
 
-Run the `setup.bash` with superuser privilege, and no news is good news.
+Run the `setup.bash` with superuser privilege.
 
 ```bash
 sudo ./setup.bash
@@ -46,7 +46,7 @@ docker compose build latex-base && docker compose build latex-dev
 ### 3. Start
 
 ```bash
-docker compose up -d
+docker compose up -d latex-dev
 ```
 
 ### 4. Use
@@ -54,3 +54,5 @@ docker compose up -d
 ```bash
 docker exec -it latex_dev bash
 ```
+
+## 

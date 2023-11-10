@@ -3,52 +3,121 @@
 ARG BASE_IMAGE
 FROM ${BASE_IMAGE} AS base
 
+################################################################################
+######################### shell, terminal and locales ##########################
+################################################################################
+USER root
+
 # shell
 SHELL ["/bin/bash", "-c"]
 # terminal
 ENV TERM=xterm-256color
 ENV color_prompt=yes
-
-USER root
+# locales, ref: https://help.ubuntu.com/community/Locale
 RUN http_proxy=${http_proxy} \
     https_proxy=${https_proxy} \
     HTTP_PROXY=${HTTP_PROXY} \
     HTTPS_PROXY=${HTTPS_PROXY} \
     apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -qy --no-install-recommends \
-    sudo \
     locales \
-    && rm -rf /var/lib/apt/lists/*
-
-################################################################################
-# locale
-################################################################################
-
-# ref: https://help.ubuntu.com/community/Locale
-RUN sed -i -e 's/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen && \
-    locale-gen
+    && rm -rf /var/lib/apt/lists/* && \
+    sed -i -e 's/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen && locale-gen
 ENV LC_ALL en_US.UTF-8 
 ENV LANG en_US.UTF-8  
 ENV LANGUAGE en_US
 
 ################################################################################
-# user
+##################################### user #####################################
 ################################################################################
-
-ARG USER 
 ARG UID 
 ARG GID 
+ARG USER 
 RUN groupadd -g ${GID} ${USER} && \
-    useradd -r -m -d /home/${USER} -s /bin/bash -g ${GID} -u ${UID} -G sudo ${USER}
+    useradd -r -m -d /home/${USER} -s /bin/bash -g ${GID} -u ${UID} ${USER}
 USER ${USER}
 ARG HOME=/home/${USER}
 WORKDIR ${HOME}
 
 ################################################################################
-# editor
+############################## Zathura pdf viewer ##############################
 ################################################################################
+# TODO: multistage build for build and runtime dependencies
+USER root
+FROM base AS zathura
+RUN http_proxy=${http_proxy} \
+    https_proxy=${https_proxy} \
+    HTTP_PROXY=${HTTP_PROXY} \
+    HTTPS_PROXY=${HTTPS_PROXY} \
+    apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -qy --no-install-recommends \
+    # for downloading
+    wget \
+    git \
+    unzip \
+    ca-certificates gpg-agent \
+    # for x11 client and dbus support
+    xauth x11-apps xclip dbus dbus-x11 \
+    # for building
+    build-essential \
+    meson ninja-build \
+    # zathura dependencies
+    libgtk-3-dev libmagic-dev gettext libcanberra-gtk3-module \
+    # forward and inverse searching
+    libsynctex-dev \
+    xdg-utils \ 
+    && rm -rf /var/lib/apt/lists/*
 
-FROM base AS nvim
+ARG GIRARA_VERSION=0.4.0
+ARG GIRARA_SRC_URL=https://pwmt.org/projects/girara/download/girara-${GIRARA_VERSION}.tar.xz
+RUN wget -e http_proxy=${http_proxy} -e https_proxy=${https_proxy} ${GIRARA_SRC_URL} && \
+    tar -xf girara-${GIRARA_VERSION}.tar.xz && \
+    cd girara-${GIRARA_VERSION} && \
+    mkdir build && \
+    meson build && \
+    cd build && \
+    ninja && \
+    ninja install && \
+    rm -r ../../girara-${GIRARA_VERSION}.tar.xz ../../girara-${GIRARA_VERSION} 
+
+ARG ZATHURA_VERSION=0.5.2
+ARG ZATHURA_SRC_URL=https://pwmt.org/projects/zathura/download/zathura-${ZATHURA_VERSION}.tar.xz
+RUN wget -e http_proxy=${http_proxy} -e https_proxy=${https_proxy} ${ZATHURA_SRC_URL} && \
+    tar -xf zathura-${ZATHURA_VERSION}.tar.xz && \
+    cd zathura-${ZATHURA_VERSION} && \
+    mkdir build && \
+    meson build && \
+    cd build && \
+    ninja && \
+    ninja install && \
+    rm -r ../../zathura-${ZATHURA_VERSION}.tar.xz ../../zathura-${ZATHURA_VERSION}
+
+ARG MUPDF_VERSION=1.22.0
+ARG MUPDF_SRC_URL=https://mupdf.com/downloads/archive/mupdf-${MUPDF_VERSION}-source.tar.gz
+RUN wget -e http_proxy=${http_proxy} -e https_proxy=${https_proxy} ${MUPDF_SRC_URL} && \
+    tar -zxf mupdf-${MUPDF_VERSION}-source.tar.gz && \
+    cd mupdf-${MUPDF_VERSION}-source && \
+    make XCFLAGS='-fPIC' HAVE_X11=no HAVE_GLUT=no prefix=/usr/local install && \
+    rm ../mupdf-${MUPDF_VERSION}-source.tar.gz 
+
+ARG ZATHURA_PDF_MUPDF_VERSION=0.4.0
+ARG ZATHURA_PDF_MUPDF_SRC_URL=https://pwmt.org/projects/zathura-pdf-mupdf/download/zathura-pdf-mupdf-${ZATHURA_PDF_MUPDF_VERSION}.tar.xz
+RUN wget -e http_proxy=${http_proxy} -e https_proxy=${https_proxy} ${ZATHURA_PDF_MUPDF_SRC_URL} && \
+    tar -xf zathura-pdf-mupdf-${ZATHURA_PDF_MUPDF_VERSION}.tar.xz && \
+    cd zathura-pdf-mupdf-${ZATHURA_PDF_MUPDF_VERSION} && \
+    mkdir build && \
+    meson build && \
+    cd build && \
+    ninja && \
+    ninja install && \
+    rm -r ../../zathura-pdf-mupdf-${ZATHURA_PDF_MUPDF_VERSION}.tar.xz ../../zathura-pdf-mupdf-${ZATHURA_PDF_MUPDF_VERSION}
+
+ENV PDFVIEWER=zathura
+
+################################################################################
+#################################### editor ####################################
+################################################################################
+FROM zathura AS nvim
 USER root
 RUN http_proxy=${http_proxy} \
     https_proxy=${https_proxy} \
@@ -82,9 +151,8 @@ RUN git clone --config http.proxy=${http_proxy} --config https.proxy=${https_pro
 # pending for fetching plugins and mounting the configurations at runtime, since my setup is always WIP. only get packer.nvim (vim plugin manager) ready and mkdir $XDG_CONFIG_HOME/nvim
 
 ################################################################################
-# language server
+############################### language server ################################
 ################################################################################
-
 # texlab
 ARG TEXLAB_VERSION=5.9.2
 ARG TEXLAB_BIN_URL=https://github.com/latex-lsp/texlab/releases/download/v${TEXLAB_VERSION}/texlab-x86_64-linux.tar.gz
@@ -96,9 +164,8 @@ RUN mkdir texlab-${TEXLAB_VERSION} && \
 ENV PATH=${HOME}/texlab-${TEXLAB_VERSION}/:${PATH}
 
 ################################################################################
-# tmux
+##################################### tmux #####################################
 ################################################################################
-
 FROM nvim AS tmux_build
 
 # install dependencies via APT for building from source
@@ -128,7 +195,7 @@ RUN wget -e http_proxy=${http_proxy} -e https_proxy=${http_proxy} ${TMUX_SRC_URL
     make && \
     make install
 
-FROM nvim 
+FROM nvim AS tmux
 
 USER root
 RUN http_proxy=${http_proxy} \
@@ -156,9 +223,8 @@ RUN git clone --config http.proxy=${http_proxy} --config https.proxy=${http_prox
     ~/.tmux/plugins/tpm
 
 ################################################################################
-# fonts
+################################## typefaces ###################################
 ################################################################################
-
 RUN \
     # one of fontconfig default search paths
     mkdir -p ${HOME}/.local/share/fonts/adobe && cd ${HOME}/.local/share/fonts/adobe && \
@@ -196,13 +262,22 @@ RUN \
     wget -e http_proxy=${http_proxy} -e https_proxy=${https_proxy} \ 
     https://github.com/adobe-fonts/source-code-pro/releases/download/2.042R-u%2F1.062R-i%2F1.026R-vf/OTF-source-code-pro-2.042R-u_1.062R-i.zip && \
     unzip OTF-source-code-pro-2.042R-u_1.062R-i.zip && rm OTF-source-code-pro-2.042R-u_1.062R-i.zip && \
-    # nerd sauce code pro
-    cd ${HOME}/.local/share/fonts/ && mkdir -p nerd && \
+    # sauce code pro 
+    # https://www.nerdfonts.com/ 
+    cd ${HOME}/.local/share/fonts/ && mkdir -p nerdfonts && cd nerdfonts && \
     wget -e http_proxy=${http_proxy} -e https_proxy=${https_proxy} \ 
     https://github.com/ryanoasis/nerd-fonts/releases/download/v3.0.2/SourceCodePro.zip && \
     unzip SourceCodePro.zip && rm SourceCodePro.zip && \
+    # fira
+    cd ${HOME}/.local/share/fonts/ && mkdir -p fira && cd fira && \
+    wget -e http_proxy=${http_proxy} -e https_proxy=${https_proxy} \
+    https://github.com/mozilla/Fira/archive/refs/tags/4.106.tar.gz && \
+    tar -zxf 4.106.tar.gz && \
+    mv Fira-4.106/otf . && \
+    rm -r 4.106.tar.gz Fira-4.106/ && \
     # refresh fonts cache
     fc-cache -f && \
     # for convenience
-    fc-list -f "%{family}\n" | grep -i 'Source' > ~/adobe-fonts.txt && \
-    fc-list -f "%{family}\n" :lang=zh-cn > ~/zh-fonts.txt
+    fc-list -f "%{family}\n" | grep -i 'Source' > ~/adobe-typefaces.txt && \
+    fc-list -f "%{family}\n" | grep -i 'Fira' > ~/fira-typefaces.txt && \
+    fc-list -f "%{family}\n" :lang=zh-cn > ~/zh-cn-typefaces.txt

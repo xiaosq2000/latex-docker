@@ -8,11 +8,6 @@ if ! [ $(id -u) = 0 ]; then
    echo "Error: The script need to be run as root." >&2
    exit 1
 fi
-if [ $SUDO_USER ]; then
-    REAL_USER=$SUDO_USER
-else
-    REAL_USER=$(whoami)
-fi
 
 ################################################################################
 ###################### generate and load the '.env' file #######################
@@ -38,7 +33,7 @@ NEOVIM_VERSION=0.9.1
 TEXLAB_VERSION=5.9.2
 TMUX_VERSION=3.3a
 
-DISPLAY=
+DISPLAY=${DISPLAY}
 " > ${SCRIPT_DIR}/.env
 
 # ref: https://stackoverflow.com/a/30969768
