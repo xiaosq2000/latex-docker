@@ -121,7 +121,7 @@ append_to_download_list() {
 }
 download_all() {
     for i in "${!wget_urls[@]}"; do
-        wget "${wget_urls[i]}" -q --show-progress -c -O "${wget_paths[i]}"
+        wget "${wget_urls[i]}" -q --show-progress -O "${wget_paths[i]}"
     done
 }
 
@@ -129,7 +129,6 @@ append_to_download_list GIRARA_VERSION "https://pwmt.org/projects/girara/downloa
 append_to_download_list ZATHURA_VERSION "https://pwmt.org/projects/zathura/download/zathura-${ZATHURA_VERSION}.tar.xz" ""
 append_to_download_list MUPDF_VERSION "https://mupdf.com/downloads/archive/mupdf-${MUPDF_VERSION}-source.tar.gz" ""
 append_to_download_list ZATHURA_PDF_MUPDF_VERSION "https://pwmt.org/projects/zathura-pdf-mupdf/download/zathura-pdf-mupdf-${ZATHURA_PDF_MUPDF_VERSION}.tar.xz" ""
-
 append_to_download_list TMUX_VERSION "https://github.com/tmux/tmux/releases/download/${TMUX_VERSION}/tmux-${TMUX_VERSION}.tar.gz" ""
 append_to_download_list NEOVIM_VERSION "https://github.com/neovim/neovim/releases/download/v${NEOVIM_VERSION}/nvim-linux64.tar.gz" ""
 

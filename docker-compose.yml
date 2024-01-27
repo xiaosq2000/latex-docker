@@ -41,6 +41,8 @@ services:
       - ~/.config/nvim/:${DOCKER_HOME}/.config/nvim/:ro
       # tmux configuration
       - ~/.tmux.conf:${DOCKER_HOME}/.tmux.conf:ro
-      # workspace
+      # zathura configuration
+      - ~/.config/zathura/:${DOCKER_HOME}/.config/zathura/:ro
+      # workspaces
       - ~/dev/resume/:${DOCKER_HOME}/dev/resume/:rw
       - ~/dev/notes/:${DOCKER_HOME}/dev/notes/:rw
