@@ -40,7 +40,12 @@ services:
       # nvim configuration
       - ~/.config/nvim/:${DOCKER_HOME}/.config/nvim/:ro
       # tmux configuration
-      - ~/.tmux.conf:${DOCKER_HOME}/.tmux.conf:ro
+      - ~/.config/tmux/tmux.conf:${DOCKER_HOME}//.config/tmux/tmux.conf:ro
+      # zsh configuration
+      - ~/.zshrc:${DOCKER_HOME}/.zshrc:ro
+      - ~/.oh-my-zsh/custom/:${DOCKER_HOME}/.oh-my-zsh/custom/:ro
+      # starship configuration
+      - ~/.config/starship.toml:${DOCKER_HOME}/.config/starship.toml:ro
       # zathura configuration
       - ~/.config/zathura/:${DOCKER_HOME}/.config/zathura/:ro
       # workspaces

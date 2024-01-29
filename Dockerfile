@@ -118,71 +118,9 @@ RUN cd zathura-pdf-mupdf-${ZATHURA_PDF_MUPDF_VERSION} && \
     rm -r ../../zathura-pdf-mupdf-${ZATHURA_PDF_MUPDF_VERSION}
 ENV PDFVIEWER=zathura
 
-FROM base AS building_tmux
-ARG TMUX_VERSION
-ADD downloads/tmux-${TMUX_VERSION}.tar.gz .
-RUN apt-get update && apt-get install -qy --no-install-recommends \
-    libevent-dev ncurses-dev bison \
-    && rm -fr /var/lib/apt/lists/{apt,dpkg,cache,log} /tmp/* /var/tmp/* && \
-    cd tmux-${TMUX_VERSION} && \
-    mkdir -p build && \
-    ./configure --prefix=${DEPENDENCIES_DIR}/tmux-${TMUX_VERSION}/build && \
-    make -j ${COMPILE_JOBS} && make install
-# Copy TMUX binaries.
-FROM base
-ARG TMUX_VERSION
-RUN apt-get update && apt-get install -qy --no-install-recommends \
-    # runtime dependencies
-    libevent-core-2.1-7 libncurses6 \
-    && rm -fr /var/lib/apt/lists/{apt,dpkg,cache,log} /tmp/* /var/tmp/*
-COPY --from=building_tmux --chown=${DOCKER_USER}:${DOCKER_USER} ${DEPENDENCIES_DIR}/tmux-${TMUX_VERSION}/build tmux-${TMUX_VERSION}
-ENV PATH=${DEPENDENCIES_DIR}/tmux-${TMUX_VERSION}/bin:${PATH}
-ENV LD_LIBRARY_PATH=${DEPENDENCIES_DIR}/tmux-${TMUX_VERSION}/lib:${LD_LIBRARY_PATH}
-ENV MANPATH=${DEPENDENCIES_DIR}/tmux-${TMUX_VERSION}/share/man:${PATH}
-# Copy pre-built neovim binaries.
-ARG NEOVIM_VERSION
-ADD downloads/nvim-linux64.tar.gz .
-RUN apt-get update && apt-get install -qy --no-install-recommends \
-    # for nvim-telescope better performance
-    ripgrep fd-find \
-    && rm -fr /var/lib/apt/lists/{apt,dpkg,cache,log} /tmp/* /var/tmp/*
-ENV PATH=${DEPENDENCIES_DIR}/nvim-linux64/bin:${PATH}
-
-################################################################################
-# Switch to non-root user from now on.
-################################################################################
-
-USER ${DOCKER_USER}
-
-# Set up the default shell
-SHELL ["/bin/bash", "-c"]
-# Set up terminal related environment variables.
-ENV TERM=xterm-256color
-ENV color_prompt=yes
-
-# My development environment
-RUN \
-    # Download packer.nvim, a neovim plugin manager.
-    git config --global http.proxy ${http_proxy} && git config --global https.proxy ${https_proxy} && \
-    git clone --config http.proxy=${http_proxy} --config https.proxy=${https_proxy} --depth 1 \
-    https://github.com/wbthomason/packer.nvim \
-    ${DOCKER_HOME}/.local/share/nvim/site/pack/packer/start/packer.nvim && \
-    # Download tpm, a TMUX plugin manager.
-    git clone --config http.proxy=${http_proxy} --config https.proxy=${http_proxy} \
-    https://github.com/tmux-plugins/tpm \
-    ${DOCKER_HOME}/.tmux/plugins/tpm && \
-    # Download the latest nvm, a node-js version manager.
-    wget -qO- "https://github.com/nvm-sh/nvm/raw/master/install.sh" | bash && \
-    export NVM_DIR="$DOCKER_HOME/.nvm" && \
-    # Configure the ~/.bashrc by executing this script.
-    [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" && \
-    # Install the latest lts nodejs
-    nvm install --lts node && \
-    git config --global --unset http.proxy && git config --global --unset https.proxy
-
 # Typefaces 
-RUN mkdir -p ${DOCKER_HOME}/.local/share/fonts/
-WORKDIR ${DOCKER_HOME}/.local/share/fonts/
+RUN mkdir -p /usr/local/share/fonts/
+WORKDIR /usr/local/share/fonts/
 COPY ./downloads/typefaces/FiraSans/Fira-4.106/otf/*.otf .
 COPY ./downloads/typefaces/SourceSans/OTF/*.otf .
 COPY ./downloads/typefaces/SourceSerif/source-serif-4.005_Desktop/OTF/*.otf .
@@ -193,14 +131,64 @@ COPY ./downloads/typefaces/SourceCodePro/OTF/*.otf .
 COPY ./downloads/typefaces/NerdFontsSourceCodePro/*.ttf .
 RUN \
     # Refresh fonts cache.
-    fc-cache -f && \
+    fc-cache -fs && \
     # Generate the list of some available typefaces for convenience.
     mkdir -p ~/typefaces_lists && \
     fc-list -f "%{family}\n" | grep -i 'Source' > ~/typefaces_lists/adobe.txt && \
     fc-list -f "%{family}\n" | grep -i 'Fira' > ~/typefaces_lists/fira.txt && \
     fc-list -f "%{family}\n" :lang=zh-cn > ~/typefaces_lists/zh-cn.txt
 
-WORKDIR ${DOCKER_HOME}
+################################################################################
+####################### Personal Development Environment #######################
+################################################################################
+# Terminal: tmux (tpm)
+# Shell: zsh (oh-my-zsh); starship
+# Editor: neovim (packer, mason, nodejs)
+
+ENV TERM=xterm-256color
+
+RUN apt-get update && apt-get install -qy --no-install-recommends \
+    curl wget \
+    tmux \
+    zsh \
+    # nvim-telescope better performance
+    ripgrep fd-find \
+    && rm -fr /var/lib/apt/lists/{apt,dpkg,cache,log} /tmp/* /var/tmp/* && \
+    # Install starship, a cross-shell prompt tool
+    wget -qO- https://starship.rs/install.sh | sh -s -- --yes
+
+USER ${DOCKER_USER}
+
+# Neovim
+ARG NEOVIM_VERSION
+ADD --chown=${DOCKER_USER}:${DOCKER_USER} https://github.com/neovim/neovim/releases/download/v${NEOVIM_VERSION}/nvim-linux64.tar.gz ${DOCKER_HOME}/.local/nvim-linux64.tar.gz
+RUN cd ${DOCKER_HOME}/.local/ && \
+    tar -xf nvim-linux64.tar.gz && \
+    mkdir -p ${DOCKER_HOME}/.local/bin/ ${DOCKER_HOME}/.local/lib/ && \
+    mv nvim-linux64/bin/* ${DOCKER_HOME}/.local/bin/ && \
+    mv nvim-linux64/lib/* ${DOCKER_HOME}/.local/lib/ && \
+    rm -r nvim-linux64.tar.gz nvim-linux64
+
+# Managers
+RUN \
+    # Install oh-my-zsh
+    sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" && \
+    # Install packer.nvim, a neovim plugin manager.
+    git clone --depth 1 https://github.com/wbthomason/packer.nvim ${DOCKER_HOME}/.local/share/nvim/site/pack/packer/start/packer.nvim && \
+    # Install tpm, a tmux plugin manager.
+    git clone https://github.com/tmux-plugins/tpm ${DOCKER_HOME}/.local/share/tmux/plugins/tpm && \
+    # Install nvm, a node-js version manager.
+    export NVM_DIR=${DOCKER_HOME}/.config/nvm && mkdir -p ${NVM_DIR} && \
+    # No modification of shell profiles
+    PROFILE=/dev/null bash -c 'wget -qO- "https://github.com/nvm-sh/nvm/raw/master/install.sh" | bash' && \
+    # Load nvm
+    . "${NVM_DIR}/nvm.sh" && \
+    # Install the latest lts nodejs
+    nvm install --lts node
+
+################################################################################
+############################## TODO: My dotfiles ###############################
+################################################################################
 
 # Clear environment variables exclusively for building to prevent pollution.
 ENV DEBIAN_FRONTEND=newt
@@ -208,3 +196,5 @@ ENV http_proxy=
 ENV HTTP_PROXY=
 ENV https_proxy=
 ENV HTTPS_PROXY=
+
+WORKDIR ${DOCKER_HOME}
