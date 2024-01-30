@@ -32,17 +32,6 @@ services:
         DOCKER_UID: ${DOCKER_UID}
         DOCKER_GID: ${DOCKER_GID}
     volumes:
-      # nvim configuration
-      - ~/.config/nvim/:${DOCKER_HOME}/.config/nvim/:ro
-      # tmux configuration
-      - ~/.config/tmux/tmux.conf:${DOCKER_HOME}/.config/tmux/tmux.conf:ro
-      # zsh configuration
-      - ~/.zshrc:${DOCKER_HOME}/.zshrc:ro
-      - ~/.config/zsh:${DOCKER_HOME}/.config/zsh:ro
-      # starship configuration
-      - ~/.config/starship.toml:${DOCKER_HOME}/.config/starship.toml:ro
-      # zathura configuration
-      - ~/.config/zathura/:${DOCKER_HOME}/.config/zathura/:ro
       # x11 socket
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
       # dbus socket

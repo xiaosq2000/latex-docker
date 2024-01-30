@@ -155,18 +155,24 @@ RUN apt-get update && apt-get install -qy --no-install-recommends \
     ripgrep fd-find \
     && rm -fr /var/lib/apt/lists/{apt,dpkg,cache,log} /tmp/* /var/tmp/* && \
     # Install starship, a cross-shell prompt tool
-    wget -qO- https://starship.rs/install.sh | sh -s -- --yes
+    wget -qO- https://starship.rs/install.sh | sh -s -- --yes --arch x86_64
 
 USER ${DOCKER_USER}
 # Neovim
 ARG NEOVIM_VERSION
 ADD --chown=${DOCKER_USER}:${DOCKER_USER} https://github.com/neovim/neovim/releases/download/v${NEOVIM_VERSION}/nvim-linux64.tar.gz ${DOCKER_HOME}/.local/nvim-linux64.tar.gz
-RUN cd ~/.local/ && \
-    tar -xf nvim-linux64.tar.gz && \
-    mkdir -p ~/.local/bin/ ~/.local/lib/ && \
-    mv nvim-linux64/bin/* ~/.local/bin/ && \
-    mv nvim-linux64/lib/* ~/.local/lib/ && \
-    rm -r nvim-linux64.tar.gz nvim-linux64
+RUN export PREFIX="${DOCKER_HOME}/.local" && \ 
+    cd ${PREFIX} && \
+    tar -xf nvim-linux64.tar.gz && cd nvim-linux64 && \
+    install() { mkdir -p ${PREFIX}/$1/ && cp -r $1/* ${PREFIX}/$1/; } && \
+    install bin && \
+    install lib && \
+    install man/man1 && \
+    install share/applications && \
+    install share/icons && \
+    install share/locale && \
+    install share/nvim && \
+    cd .. && rm -r nvim-linux64.tar.gz nvim-linux64
 
 # Managers and plugins
 RUN \
@@ -184,6 +190,13 @@ RUN \
     PROFILE=/dev/null bash -c 'wget -qO- "https://github.com/nvm-sh/nvm/raw/master/install.sh" | bash' && \
     # Load nvm and install the latest lts nodejs
     . "${NVM_DIR}/nvm.sh" && nvm install --lts node
+
+# Dotfiles
+RUN cd ~ && \
+    git init --initial-branch=main && \
+    git remote add origin https://github.com/xiaosq2000/dotfiles && \
+    git fetch --all && \
+    git reset --hard origin/main
 
 # Clear environment variables exclusively for building to prevent pollution.
 ENV DEBIAN_FRONTEND=newt
