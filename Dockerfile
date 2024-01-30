@@ -151,40 +151,39 @@ RUN apt-get update && apt-get install -qy --no-install-recommends \
     curl wget \
     tmux \
     zsh \
-    # for nvim-telescope performance
+    # nvim-telescope performance
     ripgrep fd-find \
     && rm -fr /var/lib/apt/lists/{apt,dpkg,cache,log} /tmp/* /var/tmp/* && \
     # Install starship, a cross-shell prompt tool
     wget -qO- https://starship.rs/install.sh | sh -s -- --yes
 
 USER ${DOCKER_USER}
-
 # Neovim
 ARG NEOVIM_VERSION
 ADD --chown=${DOCKER_USER}:${DOCKER_USER} https://github.com/neovim/neovim/releases/download/v${NEOVIM_VERSION}/nvim-linux64.tar.gz ${DOCKER_HOME}/.local/nvim-linux64.tar.gz
-RUN cd ${DOCKER_HOME}/.local/ && \
+RUN cd ~/.local/ && \
     tar -xf nvim-linux64.tar.gz && \
-    mkdir -p ${DOCKER_HOME}/.local/bin/ ${DOCKER_HOME}/.local/lib/ && \
-    mv nvim-linux64/bin/* ${DOCKER_HOME}/.local/bin/ && \
-    mv nvim-linux64/lib/* ${DOCKER_HOME}/.local/lib/ && \
+    mkdir -p ~/.local/bin/ ~/.local/lib/ && \
+    mv nvim-linux64/bin/* ~/.local/bin/ && \
+    mv nvim-linux64/lib/* ~/.local/lib/ && \
     rm -r nvim-linux64.tar.gz nvim-linux64
 
-# Managers
+# Managers and plugins
 RUN \
     # Install oh-my-zsh
     sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" && \
-    # Install packer.nvim, a neovim plugin manager.
-    git clone --depth 1 https://github.com/wbthomason/packer.nvim ${DOCKER_HOME}/.local/share/nvim/site/pack/packer/start/packer.nvim && \
-    # Install tpm, a tmux plugin manager.
-    git clone --depth 1 https://github.com/tmux-plugins/tpm ${DOCKER_HOME}/.local/share/tmux/plugins/tpm && \
-    # Install nvm, a node-js version manager.
-    export NVM_DIR=${DOCKER_HOME}/.config/nvm && mkdir -p ${NVM_DIR} && \
-    # No modification of shell profiles
+    # Install zsh plugins
+    git clone --depth 1 https://github.com/zsh-users/zsh-syntax-highlighting.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting && \
+    git clone --depth 1 https://github.com/zsh-users/zsh-autosuggestions.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions && \
+    # Install packer.nvim
+    git clone --depth 1 https://github.com/wbthomason/packer.nvim ~/.local/share/nvim/site/pack/packer/start/packer.nvim && \
+    # Install tpm
+    git clone --depth 1 https://github.com/tmux-plugins/tpm ~/.local/share/tmux/plugins/tpm && \
+    # Install nvm, without modification of shell profiles
+    export NVM_DIR=~/.config/nvm && mkdir -p ${NVM_DIR} && \
     PROFILE=/dev/null bash -c 'wget -qO- "https://github.com/nvm-sh/nvm/raw/master/install.sh" | bash' && \
-    # Load nvm
-    . "${NVM_DIR}/nvm.sh" && \
-    # Install the latest lts nodejs
-    nvm install --lts node
+    # Load nvm and install the latest lts nodejs
+    . "${NVM_DIR}/nvm.sh" && nvm install --lts node
 
 # Clear environment variables exclusively for building to prevent pollution.
 ENV DEBIAN_FRONTEND=newt
