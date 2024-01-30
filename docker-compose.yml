@@ -27,27 +27,26 @@ services:
         MUPDF_VERSION: ${MUPDF_VERSION}
         ZATHURA_PDF_MUPDF_VERSION: ${ZATHURA_PDF_MUPDF_VERSION}
         NEOVIM_VERSION: ${NEOVIM_VERSION}
-        TMUX_VERSION: ${TMUX_VERSION}
         DOCKER_USER: ${DOCKER_USER}
         DOCKER_HOME: ${DOCKER_HOME}
         DOCKER_UID: ${DOCKER_UID}
         DOCKER_GID: ${DOCKER_GID}
     volumes:
-      # x11 socket
-      - /tmp/.X11-unix:/tmp/.X11-unix:rw
-      # dbus socket
-      - /run/user/${DOCKER_UID}/at-spi:/run/user/${DOCKER_UID}/at-spi:rw
       # nvim configuration
       - ~/.config/nvim/:${DOCKER_HOME}/.config/nvim/:ro
       # tmux configuration
-      - ~/.config/tmux/tmux.conf:${DOCKER_HOME}//.config/tmux/tmux.conf:ro
+      - ~/.config/tmux/tmux.conf:${DOCKER_HOME}/.config/tmux/tmux.conf:ro
       # zsh configuration
       - ~/.zshrc:${DOCKER_HOME}/.zshrc:ro
-      - ~/.oh-my-zsh/custom/:${DOCKER_HOME}/.oh-my-zsh/custom/:ro
+      - ~/.config/zsh:${DOCKER_HOME}/.config/zsh:ro
       # starship configuration
       - ~/.config/starship.toml:${DOCKER_HOME}/.config/starship.toml:ro
       # zathura configuration
       - ~/.config/zathura/:${DOCKER_HOME}/.config/zathura/:ro
+      # x11 socket
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      # dbus socket
+      - /run/user/${DOCKER_UID}/at-spi:/run/user/${DOCKER_UID}/at-spi:rw
       # workspaces
       - ~/dev/resume/:${DOCKER_HOME}/dev/resume/:rw
       - ~/dev/notes/:${DOCKER_HOME}/dev/notes/:rw

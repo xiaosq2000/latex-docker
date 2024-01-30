@@ -151,7 +151,7 @@ RUN apt-get update && apt-get install -qy --no-install-recommends \
     curl wget \
     tmux \
     zsh \
-    # nvim-telescope better performance
+    # for nvim-telescope performance
     ripgrep fd-find \
     && rm -fr /var/lib/apt/lists/{apt,dpkg,cache,log} /tmp/* /var/tmp/* && \
     # Install starship, a cross-shell prompt tool
@@ -176,7 +176,7 @@ RUN \
     # Install packer.nvim, a neovim plugin manager.
     git clone --depth 1 https://github.com/wbthomason/packer.nvim ${DOCKER_HOME}/.local/share/nvim/site/pack/packer/start/packer.nvim && \
     # Install tpm, a tmux plugin manager.
-    git clone https://github.com/tmux-plugins/tpm ${DOCKER_HOME}/.local/share/tmux/plugins/tpm && \
+    git clone --depth 1 https://github.com/tmux-plugins/tpm ${DOCKER_HOME}/.local/share/tmux/plugins/tpm && \
     # Install nvm, a node-js version manager.
     export NVM_DIR=${DOCKER_HOME}/.config/nvm && mkdir -p ${NVM_DIR} && \
     # No modification of shell profiles
@@ -185,10 +185,6 @@ RUN \
     . "${NVM_DIR}/nvm.sh" && \
     # Install the latest lts nodejs
     nvm install --lts node
-
-################################################################################
-############################## TODO: My dotfiles ###############################
-################################################################################
 
 # Clear environment variables exclusively for building to prevent pollution.
 ENV DEBIAN_FRONTEND=newt

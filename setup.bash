@@ -31,7 +31,6 @@ ZATHURA_VERSION=0.5.2
 MUPDF_VERSION=1.22.0
 ZATHURA_PDF_MUPDF_VERSION=0.4.0
 NEOVIM_VERSION=0.9.1
-TMUX_VERSION=3.3a
 DOCKER_USER=latex
 DOCKER_HOME=/home/latex
 DOCKER_UID=${SUDO_UID}
@@ -129,7 +128,6 @@ append_to_download_list GIRARA_VERSION "https://pwmt.org/projects/girara/downloa
 append_to_download_list ZATHURA_VERSION "https://pwmt.org/projects/zathura/download/zathura-${ZATHURA_VERSION}.tar.xz" ""
 append_to_download_list MUPDF_VERSION "https://mupdf.com/downloads/archive/mupdf-${MUPDF_VERSION}-source.tar.gz" ""
 append_to_download_list ZATHURA_PDF_MUPDF_VERSION "https://pwmt.org/projects/zathura-pdf-mupdf/download/zathura-pdf-mupdf-${ZATHURA_PDF_MUPDF_VERSION}.tar.xz" ""
-append_to_download_list TMUX_VERSION "https://github.com/tmux/tmux/releases/download/${TMUX_VERSION}/tmux-${TMUX_VERSION}.tar.gz" ""
 append_to_download_list NEOVIM_VERSION "https://github.com/neovim/neovim/releases/download/v${NEOVIM_VERSION}/nvim-linux64.tar.gz" ""
 
 # Typefaces
