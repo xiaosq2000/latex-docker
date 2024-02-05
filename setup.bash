@@ -1,13 +1,18 @@
 #!/bin/bash
 
-# Be safe
+# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Arguments >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+TO_BUILD=true
+BUILD_WITH_PROXY=true
+RUN_WITH_PROXY=true
+RUN_WITH_NVIDIA=true
+# <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< Arguments <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+# Be safe.
 set -euo pipefail
-# Get parent folder of this script, a bash trick.
+# The parent folder of this script.
 script_dir=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-# The path of 'env_file' for Docker Compose.
-env_file=${script_dir}/.env 
-# Clear env_file.
-cat /dev/null > ${env_file}
+# The default path of 'env_file' for Docker Compose and clear the file.
+env_file=${script_dir}/.env && cat /dev/null > ${env_file}
 # Check permission. Superuser privilege is used to mount the iso.
 if ! [ $(id -u) = 0 ]; then
     echo "Error: The script needs root privilege to run. Try again with sudo." >&2
@@ -15,15 +20,11 @@ if ! [ $(id -u) = 0 ]; then
 fi
 
 # >>>>>>>>>>>>>>>>>>>>>>>>>> Environment Variables >>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+buildtime_env=$(cat <<-END
 
-envs=$(cat <<-END
-# building arguments
+# >>> as 'service.build.args' in docker-compose.yml >>> 
 DOCKER_BUILDKIT=1
 BASE_IMAGE=ubuntu:22.04
-HTTP_PROXY=http://127.0.0.1:1080
-HTTPS_PROXY=http://127.0.0.1:1080
-http_proxy=http://127.0.0.1:1080
-https_proxy=http://127.0.0.1:1080
 TEXLIVE_VERSION=2023
 TEXLIVE_SCHEME=full
 GIRARA_VERSION=0.4.0
@@ -31,26 +32,140 @@ ZATHURA_VERSION=0.5.2
 MUPDF_VERSION=1.22.0
 ZATHURA_PDF_MUPDF_VERSION=0.4.0
 NEOVIM_VERSION=0.9.4
+TMUX_GIT_HASH=ea7136fb838a2831d38e11ca94094cea61a01e3a
+# <<< as 'service.build.args' in docker-compose.yml <<< 
+
+END
+)
+
+buildtime_proxy_env=$(cat <<-END
+
+BUILDTIME_NETWORK_MODE=host
+# >>> as 'service.build.args' in docker-compose.yml >>> 
+# Pay attention: 
+# http_proxy: \${buildtime_http_proxy}
+# ...
+buildtime_http_proxy=http://127.0.0.1:1080
+buildtime_https_proxy=http://127.0.0.1:1080
+BUILDTIME_HTTP_PROXY=http://127.0.0.1:1080
+BUILDTIME_HTTPS_PROXY=http://127.0.0.1:1080
+# <<< as 'service.build.args' in docker-compose.yml <<< 
+
+END
+)
+runtime_proxy_env=$(cat <<-END
+
+RUNTIME_NETWORK_MODE=bridge
+http_proxy=http://host.docker.internal:1080
+https_proxy=http://host.docker.internal:1080
+HTTP_PROXY=http://host.docker.internal:1080
+HTTPS_PROXY=http://host.docker.internal:1080
+
+END
+)
+user_env=$(cat <<-END
+
+# >>> as 'service.build.args' in docker-compose.yml >>> 
 DOCKER_USER=latex
 DOCKER_HOME=/home/latex
 DOCKER_UID=${SUDO_UID}
 DOCKER_GID=${SUDO_GID}
-#
-NETWORK_MODE=host
-DISPLAY=${DISPLAY}
+# <<< as 'service.build.args' in docker-compose.yml <<< 
+
 END
 )
-# Write environment variables to file.
-echo "${envs}" >> ${env_file}
-# Load environment variables from file.
-set -o allexport && source ${env_file} && set +o allexport
+runtime_env=$(cat <<-END
 
+RUNTIME=runc
+DISPLAY=${DISPLAY}
+SDL_VIDEODRIVER=x11
+
+END
+)
+nvidia_runtime_env=$(cat <<-END
+
+RUNTIME=nvidia
+NVIDIA_VISIBLE_DEVICES=all
+NVIDIA_DRIVER_CAPABILITIES=all
+DISPLAY=${DISPLAY}
+SDL_VIDEODRIVER=x11
+
+END
+)
 # <<<<<<<<<<<<<<<<<<<<<<<<<< Environment Variables <<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
-downloads_dir=${script_dir}/downloads
-mkdir -p ${downloads_dir}/
+echo "
+################################################################################
+############################ Environment Variables #############################
+################################################################################
+" >> ${env_file}
+echo "# The file is managed by 'setup.bash'." >> ${env_file}
 
-# Download TexLive (the huge iso distribution)
+# Verify and save the categories of environment variables.
+if [ "${TO_BUILD}" = true ]; then
+    echo "${buildtime_env}" >> ${env_file}
+else
+    echo -e "Warning: TO_BUILD=false\n\tMake sure the Docker image is ready."
+fi
+if [ "${BUILD_WITH_PROXY}" = true ]; then
+    echo "${buildtime_proxy_env}" >> ${env_file}
+else
+    echo -e "Warning: BUILD_WITH_PROXY=false\n\tChinese GFW may corrupt networking in the building stage."
+fi
+if [ "${RUN_WITH_PROXY}" = true ]; then
+    echo "${runtime_proxy_env}" >> ${env_file}
+else
+    echo -e "Warning: RUN_WITH_PROXY=false\n\tChinese GFW may corrupt networking."
+fi
+echo "${user_env}" >> ${env_file}
+if [ "${RUN_WITH_NVIDIA}" = true ]; then
+    echo "${nvidia_runtime_env}" >> ${env_file}
+else
+    echo "${runtime_env}" >> ${env_file}
+fi
+echo "
+################################################################################
+################################################################################
+################################################################################
+" >> ${env_file}
+# Print the env_file to stdout
+cat ${env_file}
+
+# Load varibles from ${env_file}. Ref: https://stackoverflow.com/a/30969768
+set -o allexport && source ${env_file} && set +o allexport
+
+# <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< Downloads <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+# No need to download anything since the Docker image is ready.
+if [ "${TO_BUILD}" = false ]; then
+    exit 0
+fi
+
+downloads_dir="${script_dir}/downloads" && mkdir -p "${downloads_dir}"
+                     
+# Two helper functions for downloading.
+wget_urls=(); wget_paths=();
+append_to_download_list() {
+    if [ -z "$(eval echo "\$$1")" ]; then
+        return 0;
+    fi
+    url="$2"
+    if [ -z "$3" ]; then
+        filename=$(basename "$url")
+    else
+        filename="$3"
+    fi
+    if [ ! -f "${downloads_dir}/${filename}" ]; then
+        wget_paths+=("${downloads_dir}/${filename}")
+        wget_urls+=("$url")
+    fi
+}
+download_all() {
+    for i in "${!wget_urls[@]}"; do
+        wget "${wget_urls[i]}" -q --show-progress -O "${wget_paths[i]}"
+    done
+}
+
+# Download TexLive (the huge iso distribution).
 if [ ! -f ${downloads_dir}/texlive${TEXLIVE_VERSION}.iso ]; then
     wget https://ctan.mirrors.hoobly.com/systems/texlive/Images/texlive${TEXLIVE_VERSION}.iso -O ${downloads_dir}/texlive${TEXLIVE_VERSION}.iso
 fi
@@ -67,7 +182,44 @@ mkdir -p ${downloads_dir}/texlive
 if ! mountpoint -q -- "${downloads_dir}/texlive"; then
     mount -r ${downloads_dir}/texlive${TEXLIVE_VERSION}.iso ${downloads_dir}/texlive
 fi
-# Generate the install profile, Ref: https://www.tug.org/texlive/doc/install-tl.html#PROFILES
+
+append_to_download_list GIRARA_VERSION "https://pwmt.org/projects/girara/download/girara-${GIRARA_VERSION}.tar.xz" ""
+append_to_download_list ZATHURA_VERSION "https://pwmt.org/projects/zathura/download/zathura-${ZATHURA_VERSION}.tar.xz" ""
+append_to_download_list MUPDF_VERSION "https://mupdf.com/downloads/archive/mupdf-${MUPDF_VERSION}-source.tar.gz" ""
+append_to_download_list ZATHURA_PDF_MUPDF_VERSION "https://pwmt.org/projects/zathura-pdf-mupdf/download/zathura-pdf-mupdf-${ZATHURA_PDF_MUPDF_VERSION}.tar.xz" ""
+
+# Typefaces
+# Warning: Extract and organize them manually.
+mkdir -p ${downloads_dir}/typefaces
+mkdir -p ${downloads_dir}/typefaces/SourceHanSerifSC
+append_to_download_list 1 "https://github.com/adobe-fonts/source-han-serif/releases/download/2.002R/09_SourceHanSerifSC.zip" "typefaces/SourceHanSerifSC/SourceHanSerifSC.zip"
+mkdir -p ${downloads_dir}/typefaces/SourceHanSansSC
+append_to_download_list 1 "https://github.com/adobe-fonts/source-han-sans/releases/download/2.004R/SourceHanSansSC.zip" "typefaces/SourceHanSansSC/SourceHanSansSC.zip"
+mkdir -p ${downloads_dir}/typefaces/SourceHanMono
+append_to_download_list 1 "https://github.com/adobe-fonts/source-han-mono/releases/download/1.002/SourceHanMono.ttc" "typefaces/SourceHanMono/SourceHanMono.ttc"
+mkdir -p ${downloads_dir}/typefaces/SourceSerif
+append_to_download_list 1 "https://github.com/adobe-fonts/source-serif/releases/download/4.005R/source-serif-4.005_Desktop.zip" "typefaces/SourceSerif/SourceSerif.zip"
+mkdir -p ${downloads_dir}/typefaces/SourceSans
+append_to_download_list 1 "https://github.com/adobe-fonts/source-sans/releases/download/3.052R/OTF-source-sans-3.052R.zip" "typefaces/SourceSans/SourceSans.zip"
+mkdir -p ${downloads_dir}/typefaces/SourceCodePro
+append_to_download_list 1 "https://github.com/adobe-fonts/source-code-pro/releases/download/2.042R-u%2F1.062R-i%2F1.026R-vf/OTF-source-code-pro-2.042R-u_1.062R-i.zip" "typefaces/SourceCodePro/SourceCodePro.zip"
+mkdir -p ${downloads_dir}/typefaces/NerdFontsSourceCodePro
+append_to_download_list 1 "https://github.com/ryanoasis/nerd-fonts/releases/download/v3.0.2/SourceCodePro.zip" "typefaces/NerdFontsSourceCodePro/NerdFontsSourceCodePro.zip"
+mkdir -p ${downloads_dir}/typefaces/FiraSans
+append_to_download_list 1 "https://github.com/mozilla/Fira/archive/refs/tags/4.106.tar.gz" "typefaces/FiraSans/FiraSans.tar.gz"
+
+if [ ${#wget_urls[@]} = 0 ]; then
+    echo -e "No download tasks. Done."
+    exit;
+else
+    echo -e "${#wget_urls[@]} files to download:"
+    (IFS=$'\n'; echo "${wget_urls[*]}")
+fi
+
+download_all;
+# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Downloads >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+# install profile of texlive, Ref: https://www.tug.org/texlive/doc/install-tl.html#PROFILES
 install_profile=$(cat <<-END
 selected_scheme scheme-${TEXLIVE_SCHEME}
 TEXDIR /usr/local/texlive/${TEXLIVE_VERSION}
@@ -98,68 +250,5 @@ tlpdbopt_sys_man /usr/local/share/man
 tlpdbopt_w32_multi_user 1
 END
 )
-echo "${install_profile}" > ${downloads_dir}/texlive.profile
-
-# Other dependencies.
-wget_urls=(); wget_paths=();
-# Two helper functions.
-append_to_download_list() {
-    if [ -z "$(eval echo "\$$1")" ]; then
-        return 0;
-    fi
-    url="$2"
-    if [ -z "$3" ]; then
-        filename=$(basename "$url")
-    else
-        filename="$3"
-    fi
-    if [ ! -f "${downloads_dir}/${filename}" ]; then
-        wget_paths+=("${downloads_dir}/${filename}")
-        wget_urls+=("$url")
-    fi
-}
-download_all() {
-    for i in "${!wget_urls[@]}"; do
-        wget "${wget_urls[i]}" -q --show-progress -O "${wget_paths[i]}"
-    done
-}
-
-append_to_download_list GIRARA_VERSION "https://pwmt.org/projects/girara/download/girara-${GIRARA_VERSION}.tar.xz" ""
-append_to_download_list ZATHURA_VERSION "https://pwmt.org/projects/zathura/download/zathura-${ZATHURA_VERSION}.tar.xz" ""
-append_to_download_list MUPDF_VERSION "https://mupdf.com/downloads/archive/mupdf-${MUPDF_VERSION}-source.tar.gz" ""
-append_to_download_list ZATHURA_PDF_MUPDF_VERSION "https://pwmt.org/projects/zathura-pdf-mupdf/download/zathura-pdf-mupdf-${ZATHURA_PDF_MUPDF_VERSION}.tar.xz" ""
-append_to_download_list NEOVIM_VERSION "https://github.com/neovim/neovim/releases/download/v${NEOVIM_VERSION}/nvim-linux64.tar.gz" ""
-
-# Typefaces
-# Extract manually.
-mkdir -p ${downloads_dir}/typefaces
-mkdir -p ${downloads_dir}/typefaces/SourceHanSerifSC
-append_to_download_list 1 "https://github.com/adobe-fonts/source-han-serif/releases/download/2.002R/09_SourceHanSerifSC.zip" "typefaces/SourceHanSerifSC/SourceHanSerifSC.zip"
-mkdir -p ${downloads_dir}/typefaces/SourceHanSansSC
-append_to_download_list 1 "https://github.com/adobe-fonts/source-han-sans/releases/download/2.004R/SourceHanSansSC.zip" "typefaces/SourceHanSansSC/SourceHanSansSC.zip"
-mkdir -p ${downloads_dir}/typefaces/SourceHanMono
-append_to_download_list 1 "https://github.com/adobe-fonts/source-han-mono/releases/download/1.002/SourceHanMono.ttc" "typefaces/SourceHanMono/SourceHanMono.ttc"
-mkdir -p ${downloads_dir}/typefaces/SourceSerif
-append_to_download_list 1 "https://github.com/adobe-fonts/source-serif/releases/download/4.005R/source-serif-4.005_Desktop.zip" "typefaces/SourceSerif/SourceSerif.zip"
-mkdir -p ${downloads_dir}/typefaces/SourceSans
-append_to_download_list 1 "https://github.com/adobe-fonts/source-sans/releases/download/3.052R/OTF-source-sans-3.052R.zip" "typefaces/SourceSans/SourceSans.zip"
-mkdir -p ${downloads_dir}/typefaces/SourceCodePro
-append_to_download_list 1 "https://github.com/adobe-fonts/source-code-pro/releases/download/2.042R-u%2F1.062R-i%2F1.026R-vf/OTF-source-code-pro-2.042R-u_1.062R-i.zip" "typefaces/SourceCodePro/SourceCodePro.zip"
-mkdir -p ${downloads_dir}/typefaces/NerdFontsSourceCodePro
-append_to_download_list 1 "https://github.com/ryanoasis/nerd-fonts/releases/download/v3.0.2/SourceCodePro.zip" "typefaces/NerdFontsSourceCodePro/NerdFontsSourceCodePro.zip"
-mkdir -p ${downloads_dir}/typefaces/FiraSans
-append_to_download_list 1 "https://github.com/mozilla/Fira/archive/refs/tags/4.106.tar.gz" "typefaces/FiraSans/FiraSans.tar.gz"
-
-# Give some feedback via CLI.
-if [ ${#wget_urls[@]} = 0 ]; then
-    echo -e "No download tasks. Exiting now."
-    echo "Done."
-    exit;
-else
-    echo -e "${#wget_urls[@]} files to download:"
-    (IFS=$'\n'; echo "${wget_urls[*]}")
-fi
-
-download_all;
-
-echo "Done."
+echo "# The file is managed by 'setup.bash'." > ${downloads_dir}/texlive.profile
+echo "${install_profile}" >> ${downloads_dir}/texlive.profile

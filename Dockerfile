@@ -38,7 +38,7 @@ RUN apt-get update && \
     # gnuplot backend of pgfplots
     gnuplot-nox && \
     # Clear 
-    rm -rf /var/lib/apt/lists/{apt,dpkg,cache,log} /tmp/* /var/tmp/* && \
+    rm -rf /var/lib/apt/lists/* && \
     # Set locales
     sed -i -e 's/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen && locale-gen
 # Install TexLive
@@ -77,7 +77,7 @@ RUN apt-get update && \
     libsynctex-dev \
     xdg-utils && \
     # Clear
-    rm -rf /var/lib/apt/lists/{apt,dpkg,cache,log} /tmp/* /var/tmp/*
+    rm -rf /var/lib/apt/lists/*
 
 # Set the parent directory for all dependencies (not installed).
 ARG DEPENDENCIES_DIR=/usr/local
@@ -145,34 +145,47 @@ RUN \
 # Shell: zsh (oh-my-zsh); starship
 # Editor: neovim (packer, mason, nodejs)
 
-ENV TERM=xterm-256color
+USER ${DOCKER_USER}
+WORKDIR ${DOCKER_HOME}
 
-RUN apt-get update && apt-get install -qy --no-install-recommends \
-    curl wget \
-    tmux \
+SHELL ["/bin/bash", "-c"]
+
+RUN sudo apt-get update && sudo apt-get install -qy --no-install-recommends \
+    wget curl \
     zsh \
     # nvim-telescope performance
     ripgrep fd-find \
-    && rm -fr /var/lib/apt/lists/{apt,dpkg,cache,log} /tmp/* /var/tmp/* && \
+    && sudo rm -rf /var/lib/apt/lists/* && \
     # Install starship, a cross-shell prompt tool
-    wget -qO- https://starship.rs/install.sh | sh -s -- --yes --arch x86_64
+    wget -qO- https://starship.rs/install.sh | sudo sh -s -- --yes --arch x86_64
 
-USER ${DOCKER_USER}
+# ARG TMUX_VERSION=3.3a
+ARG TMUX_GIT_HASH=ea7136fb838a2831d38e11ca94094cea61a01e3a
+RUN sudo apt-get update && sudo apt-get install -qy --no-install-recommends \
+    libevent-dev ncurses-dev build-essential bison pkg-config autoconf automake \
+    && sudo rm -fr /var/lib/apt/lists/{apt,dpkg,cache,log} /tmp/* /var/tmp/* && \
+    git clone --depth 1 "https://github.com/tmux/tmux" && cd tmux && \
+    git checkout ${TMUX_GIT_HASH} && \
+    sh autogen.sh && \
+    ./configure --prefix=${DOCKER_HOME}/.local && \
+    make -j ${COMPILE_JOBS} && \
+    make install && \
+    rm -rf ../tmux
+
 # Neovim
-ARG NEOVIM_VERSION
-ADD --chown=${DOCKER_USER}:${DOCKER_USER} https://github.com/neovim/neovim/releases/download/v${NEOVIM_VERSION}/nvim-linux64.tar.gz ${DOCKER_HOME}/.local/nvim-linux64.tar.gz
-RUN export PREFIX="${DOCKER_HOME}/.local" && \ 
-    cd ${PREFIX} && \
-    tar -xf nvim-linux64.tar.gz && cd nvim-linux64 && \
-    install() { mkdir -p ${PREFIX}/$1/ && cp -r $1/* ${PREFIX}/$1/; } && \
-    install bin && \
-    install lib && \
-    install man/man1 && \
-    install share/applications && \
-    install share/icons && \
-    install share/locale && \
-    install share/nvim && \
-    cd .. && rm -r nvim-linux64.tar.gz nvim-linux64
+ARG NEOVIM_VERSION=0.9.4
+RUN wget "https://github.com/neovim/neovim/releases/download/v${NEOVIM_VERSION}/nvim-linux64.tar.gz" -O nvim-linux64.tar.gz && \
+    tar -xf nvim-linux64.tar.gz && \
+    export SOURCE_DIR=${PWD}/nvim-linux64 && export DEST_DIR=${HOME}/.local && \
+    (cd ${SOURCE_DIR} && find . -type f -exec install -Dm 755 "{}" "${DEST_DIR}/{}" \;) && \
+    rm -r nvim-linux64.tar.gz nvim-linux64
+ 
+# Lazygit (newest version)
+RUN LAZYGIT_VERSION=$(curl -s "https://api.github.com/repos/jesseduffield/lazygit/releases/latest" | grep -Po '"tag_name": "v\K[^"]*') && \
+    curl -Lo lazygit.tar.gz "https://github.com/jesseduffield/lazygit/releases/latest/download/lazygit_${LAZYGIT_VERSION}_Linux_x86_64.tar.gz" && \
+    tar xf lazygit.tar.gz lazygit && \
+    install -Dm 755 lazygit ~/.local/bin && \
+    rm lazygit.tar.gz lazygit
 
 # Managers and plugins
 RUN \
@@ -181,6 +194,7 @@ RUN \
     # Install zsh plugins
     git clone --depth 1 https://github.com/zsh-users/zsh-syntax-highlighting.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting && \
     git clone --depth 1 https://github.com/zsh-users/zsh-autosuggestions.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions && \
+    git clone --depth 1 https://github.com/conda-incubator/conda-zsh-completion ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/conda-zsh-completion && \
     # Install packer.nvim
     git clone --depth 1 https://github.com/wbthomason/packer.nvim ~/.local/share/nvim/site/pack/packer/start/packer.nvim && \
     # Install tpm
@@ -194,9 +208,13 @@ RUN \
 # Dotfiles
 RUN cd ~ && \
     git init --initial-branch=main && \
+    git checkout -b docker && \
     git remote add origin https://github.com/xiaosq2000/dotfiles && \
     git fetch --all && \
-    git reset --hard origin/main
+    git reset --hard origin/docker
+
+ENV TERM=xterm-256color
+SHELL ["/usr/bin/zsh", "-ic"]
 
 # Clear environment variables exclusively for building to prevent pollution.
 ENV DEBIAN_FRONTEND=newt
@@ -204,5 +222,3 @@ ENV http_proxy=
 ENV HTTP_PROXY=
 ENV https_proxy=
 ENV HTTPS_PROXY=
-
-WORKDIR ${DOCKER_HOME}
