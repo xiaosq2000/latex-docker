@@ -159,6 +159,7 @@ RUN sudo apt-get update && sudo apt-get install -qy --no-install-recommends \
     # Install starship, a cross-shell prompt tool
     wget -qO- https://starship.rs/install.sh | sudo sh -s -- --yes --arch x86_64
 
+# Tmux
 # ARG TMUX_VERSION=3.3a
 ARG TMUX_GIT_HASH=ea7136fb838a2831d38e11ca94094cea61a01e3a
 RUN sudo apt-get update && sudo apt-get install -qy --no-install-recommends \
