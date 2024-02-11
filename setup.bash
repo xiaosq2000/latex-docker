@@ -32,7 +32,8 @@ ZATHURA_VERSION=0.5.2
 MUPDF_VERSION=1.22.0
 ZATHURA_PDF_MUPDF_VERSION=0.4.0
 NEOVIM_VERSION=0.9.4
-TMUX_GIT_HASH=ea7136fb838a2831d38e11ca94094cea61a01e3a
+TMUX_GIT_HASH=ea7136f
+DOTFILES_GIT_HASH=7177382
 # <<< as 'service.build.args' in docker-compose.yml <<< 
 
 END
@@ -145,10 +146,13 @@ downloads_dir="${script_dir}/downloads" && mkdir -p "${downloads_dir}"
 # Two helper functions for downloading.
 wget_urls=(); wget_paths=();
 append_to_download_list() {
+    # $1: flag
     if [ -z "$(eval echo "\$$1")" ]; then
         return 0;
     fi
+    # $2: url
     url="$2"
+    # $3: filename
     if [ -z "$3" ]; then
         filename=$(basename "$url")
     else
@@ -191,22 +195,23 @@ append_to_download_list ZATHURA_PDF_MUPDF_VERSION "https://pwmt.org/projects/zat
 # Typefaces
 # Warning: Extract and organize them manually.
 mkdir -p ${downloads_dir}/typefaces
-mkdir -p ${downloads_dir}/typefaces/SourceHanSerifSC
-append_to_download_list 1 "https://github.com/adobe-fonts/source-han-serif/releases/download/2.002R/09_SourceHanSerifSC.zip" "typefaces/SourceHanSerifSC/SourceHanSerifSC.zip"
-mkdir -p ${downloads_dir}/typefaces/SourceHanSansSC
-append_to_download_list 1 "https://github.com/adobe-fonts/source-han-sans/releases/download/2.004R/SourceHanSansSC.zip" "typefaces/SourceHanSansSC/SourceHanSansSC.zip"
-mkdir -p ${downloads_dir}/typefaces/SourceHanMono
-append_to_download_list 1 "https://github.com/adobe-fonts/source-han-mono/releases/download/1.002/SourceHanMono.ttc" "typefaces/SourceHanMono/SourceHanMono.ttc"
-mkdir -p ${downloads_dir}/typefaces/SourceSerif
-append_to_download_list 1 "https://github.com/adobe-fonts/source-serif/releases/download/4.005R/source-serif-4.005_Desktop.zip" "typefaces/SourceSerif/SourceSerif.zip"
-mkdir -p ${downloads_dir}/typefaces/SourceSans
-append_to_download_list 1 "https://github.com/adobe-fonts/source-sans/releases/download/3.052R/OTF-source-sans-3.052R.zip" "typefaces/SourceSans/SourceSans.zip"
-mkdir -p ${downloads_dir}/typefaces/SourceCodePro
-append_to_download_list 1 "https://github.com/adobe-fonts/source-code-pro/releases/download/2.042R-u%2F1.062R-i%2F1.026R-vf/OTF-source-code-pro-2.042R-u_1.062R-i.zip" "typefaces/SourceCodePro/SourceCodePro.zip"
-mkdir -p ${downloads_dir}/typefaces/NerdFontsSourceCodePro
-append_to_download_list 1 "https://github.com/ryanoasis/nerd-fonts/releases/download/v3.0.2/SourceCodePro.zip" "typefaces/NerdFontsSourceCodePro/NerdFontsSourceCodePro.zip"
-mkdir -p ${downloads_dir}/typefaces/FiraSans
-append_to_download_list 1 "https://github.com/mozilla/Fira/archive/refs/tags/4.106.tar.gz" "typefaces/FiraSans/FiraSans.tar.gz"
+mkdir -p ${downloads_dir}/typefaces/SourceHanSerifSC && append_to_download_list 1 "https://github.com/adobe-fonts/source-han-serif/releases/download/2.002R/09_SourceHanSerifSC.zip" "typefaces/SourceHanSerifSC/SourceHanSerifSC.zip"
+mkdir -p ${downloads_dir}/typefaces/SourceHanSansSC && append_to_download_list 1 "https://github.com/adobe-fonts/source-han-sans/releases/download/2.004R/SourceHanSansSC.zip" "typefaces/SourceHanSansSC/SourceHanSansSC.zip"
+mkdir -p ${downloads_dir}/typefaces/SourceHanMono && append_to_download_list 1 "https://github.com/adobe-fonts/source-han-mono/releases/download/1.002/SourceHanMono.ttc" "typefaces/SourceHanMono/SourceHanMono.ttc"
+mkdir -p ${downloads_dir}/typefaces/SourceSerif && append_to_download_list 1 "https://github.com/adobe-fonts/source-serif/releases/download/4.005R/source-serif-4.005_Desktop.zip" "typefaces/SourceSerif/SourceSerif.zip"
+mkdir -p ${downloads_dir}/typefaces/SourceSans && append_to_download_list 1 "https://github.com/adobe-fonts/source-sans/releases/download/3.052R/OTF-source-sans-3.052R.zip" "typefaces/SourceSans/SourceSans.zip"
+mkdir -p ${downloads_dir}/typefaces/SourceCodePro && append_to_download_list 1 "https://github.com/adobe-fonts/source-code-pro/releases/download/2.042R-u%2F1.062R-i%2F1.026R-vf/OTF-source-code-pro-2.042R-u_1.062R-i.zip" "typefaces/SourceCodePro/SourceCodePro.zip"
+mkdir -p ${downloads_dir}/typefaces/NerdFontsSourceCodePro && append_to_download_list 1 "https://github.com/ryanoasis/nerd-fonts/releases/download/v3.0.2/SourceCodePro.zip" "typefaces/NerdFontsSourceCodePro/NerdFontsSourceCodePro.zip"
+mkdir -p ${downloads_dir}/typefaces/FiraSans && append_to_download_list 1 "https://github.com/mozilla/Fira/archive/refs/tags/4.106.tar.gz" "typefaces/FiraSans/FiraSans.tar.gz"
+mkdir -p ${downloads_dir}/typefaces/FiraCode && append_to_download_list 1 "https://github.com/tonsky/FiraCode/releases/download/6.2/Fira_Code_v6.2.zip" "typefaces/FiraCode/FiraCode.zip"
+mkdir -p ${downloads_dir}/typefaces/TexGyreAdventor && append_to_download_list 1 "https://www.gust.org.pl/projects/e-foundry/tex-gyre/adventor/qag2_501otf.zip" "typefaces/TexGyreAdventor/TexGyreAdventor.zip"
+mkdir -p ${downloads_dir}/typefaces/TexGyreBonum && append_to_download_list 1 "https://www.gust.org.pl/projects/e-foundry/tex-gyre/bonum/qbk2.004otf.zip" "typefaces/TexGyreBonum/TexGyreBonum.zip"
+mkdir -p ${downloads_dir}/typefaces/TexGyreChorus && append_to_download_list 1 "https://www.gust.org.pl/projects/e-foundry/tex-gyre/chorus/qzc2.003otf.zip" "typefaces/TexGyreChorus/TexGyreChorus.zip"
+mkdir -p ${downloads_dir}/typefaces/TexGyreCursor && append_to_download_list 1 "https://www.gust.org.pl/projects/e-foundry/tex-gyre/cursor/qcr2.004otf.zip" "typefaces/TexGyreCursor/TexGyreCursor.zip"
+mkdir -p ${downloads_dir}/typefaces/TexGyreHero && append_to_download_list 1 "https://www.gust.org.pl/projects/e-foundry/tex-gyre/heros/qhv2.004otf.zip" "typefaces/TexGyreHero/TexGyreHero.zip"
+mkdir -p ${downloads_dir}/typefaces/TexGyrePagella && append_to_download_list 1 "https://www.gust.org.pl/projects/e-foundry/tex-gyre/pagella/qpl2_501otf.zip" "typefaces/TexGyrePagella/TexGyrePagella.zip"
+mkdir -p ${downloads_dir}/typefaces/TexGyreSchola && append_to_download_list 1 "https://www.gust.org.pl/projects/e-foundry/tex-gyre/schola/qcs2.005otf.zip" "typefaces/TexGyreSchola/TexGyreSchola.zip"
+mkdir -p ${downloads_dir}/typefaces/TexGyreTermes && append_to_download_list 1 "https://www.gust.org.pl/projects/e-foundry/tex-gyre/termes/qtm2.004otf.zip" "typefaces/TexGyreTermes/TexGyreTermes.zip"
 
 if [ ${#wget_urls[@]} = 0 ]; then
     echo -e "No download tasks. Done."

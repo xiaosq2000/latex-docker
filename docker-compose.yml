@@ -22,8 +22,8 @@ services:
       # dbus socket
       - /run/user/${DOCKER_UID}/at-spi:/run/user/${DOCKER_UID}/at-spi:rw
       # workspaces
-      - ~/dev/resume/:${DOCKER_HOME}/dev/resume/:rw
-      - ~/dev/notes/:${DOCKER_HOME}/dev/notes/:rw
+      - ~/dev/notes:${DOCKER_HOME}/dev/notes/:rw
+      - ~/dev/presentations:${DOCKER_HOME}/dev/presentations/:rw
     build:
       context: .
       network: ${BUILDTIME_NETWORK_MODE}
@@ -39,6 +39,7 @@ services:
         ZATHURA_PDF_MUPDF_VERSION: ${ZATHURA_PDF_MUPDF_VERSION}
         NEOVIM_VERSION: ${NEOVIM_VERSION}
         TMUX_GIT_HASH: ${TMUX_GIT_HASH}
+        DOTFILES_GIT_HASH: ${DOTFILES_GIT_HASH}
         http_proxy: ${buildtime_http_proxy}
         https_proxy: ${buildtime_https_proxy}
         HTTP_PROXY: ${BUILDTIME_HTTP_PROXY}

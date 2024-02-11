@@ -121,7 +121,6 @@ ENV PDFVIEWER=zathura
 # Typefaces 
 RUN mkdir -p /usr/local/share/fonts/
 WORKDIR /usr/local/share/fonts/
-COPY ./downloads/typefaces/FiraSans/Fira-4.106/otf/*.otf .
 COPY ./downloads/typefaces/SourceSans/OTF/*.otf .
 COPY ./downloads/typefaces/SourceSerif/source-serif-4.005_Desktop/OTF/*.otf .
 COPY ./downloads/typefaces/SourceHanMono/SourceHanMono.ttc .
@@ -129,6 +128,9 @@ COPY ./downloads/typefaces/SourceHanSansSC/OTF/SimplifiedChinese/*.otf .
 COPY ./downloads/typefaces/SourceHanSerifSC/OTF/SimplifiedChinese/*.otf .
 COPY ./downloads/typefaces/SourceCodePro/OTF/*.otf .
 COPY ./downloads/typefaces/NerdFontsSourceCodePro/*.ttf .
+COPY ./downloads/typefaces/FiraSans/Fira-4.106/otf/*.otf .
+COPY ./downloads/typefaces/FiraCode/ttf/*.ttf .
+COPY ./downloads/typefaces/TexGyre*/*.otf .
 RUN \
     # Refresh fonts cache.
     fc-cache -fs && \
@@ -136,6 +138,7 @@ RUN \
     mkdir -p ~/typefaces_lists && \
     fc-list -f "%{family}\n" | grep -i 'Source' > ~/typefaces_lists/adobe.txt && \
     fc-list -f "%{family}\n" | grep -i 'Fira' > ~/typefaces_lists/fira.txt && \
+    fc-list -f "%{family}\n" | grep -i 'Gyre' > ~/typefaces_lists/TexGyre.txt && \
     fc-list -f "%{family}\n" :lang=zh-cn > ~/typefaces_lists/zh-cn.txt
 
 ################################################################################
@@ -152,16 +155,26 @@ SHELL ["/bin/bash", "-c"]
 
 RUN sudo apt-get update && sudo apt-get install -qy --no-install-recommends \
     wget curl \
-    zsh \
+    zsh openssh-server \
     # nvim-telescope performance
     ripgrep fd-find \
-    && sudo rm -rf /var/lib/apt/lists/* && \
-    # Install starship, a cross-shell prompt tool
-    wget -qO- https://starship.rs/install.sh | sudo sh -s -- --yes --arch x86_64
+    && sudo rm -rf /var/lib/apt/lists/*
+
+# Set up ssh server
+RUN sudo mkdir -p /var/run/sshd && \
+    sudo sed -i "s/^.*X11UseLocalhost.*$/X11UseLocalhost no/" /etc/ssh/sshd_config && \
+    sudo sed -i "s/^.*PermitUserEnvironment.*$/PermitUserEnvironment yes/" /etc/ssh/sshd_config
+
+# Neovim
+ARG NEOVIM_VERSION=0.9.4
+RUN wget "https://github.com/neovim/neovim/releases/download/v${NEOVIM_VERSION}/nvim-linux64.tar.gz" -O nvim-linux64.tar.gz && \
+    tar -xf nvim-linux64.tar.gz && \
+    export SOURCE_DIR=${PWD}/nvim-linux64 && export DEST_DIR=${HOME}/.local && \
+    (cd ${SOURCE_DIR} && find . -type f -exec install -Dm 755 "{}" "${DEST_DIR}/{}" \;) && \
+    rm -r nvim-linux64.tar.gz nvim-linux64
 
 # Tmux
-# ARG TMUX_VERSION=3.3a
-ARG TMUX_GIT_HASH=ea7136fb838a2831d38e11ca94094cea61a01e3a
+ARG TMUX_GIT_HASH=ea7136f
 RUN sudo apt-get update && sudo apt-get install -qy --no-install-recommends \
     libevent-dev ncurses-dev build-essential bison pkg-config autoconf automake \
     && sudo rm -fr /var/lib/apt/lists/{apt,dpkg,cache,log} /tmp/* /var/tmp/* && \
@@ -173,14 +186,6 @@ RUN sudo apt-get update && sudo apt-get install -qy --no-install-recommends \
     make install && \
     rm -rf ../tmux
 
-# Neovim
-ARG NEOVIM_VERSION=0.9.4
-RUN wget "https://github.com/neovim/neovim/releases/download/v${NEOVIM_VERSION}/nvim-linux64.tar.gz" -O nvim-linux64.tar.gz && \
-    tar -xf nvim-linux64.tar.gz && \
-    export SOURCE_DIR=${PWD}/nvim-linux64 && export DEST_DIR=${HOME}/.local && \
-    (cd ${SOURCE_DIR} && find . -type f -exec install -Dm 755 "{}" "${DEST_DIR}/{}" \;) && \
-    rm -r nvim-linux64.tar.gz nvim-linux64
- 
 # Lazygit (newest version)
 RUN LAZYGIT_VERSION=$(curl -s "https://api.github.com/repos/jesseduffield/lazygit/releases/latest" | grep -Po '"tag_name": "v\K[^"]*') && \
     curl -Lo lazygit.tar.gz "https://github.com/jesseduffield/lazygit/releases/latest/download/lazygit_${LAZYGIT_VERSION}_Linux_x86_64.tar.gz" && \
@@ -190,6 +195,8 @@ RUN LAZYGIT_VERSION=$(curl -s "https://api.github.com/repos/jesseduffield/lazygi
 
 # Managers and plugins
 RUN \
+    # Install starship, a cross-shell prompt tool
+    wget -qO- https://starship.rs/install.sh | sudo sh -s -- --yes --arch x86_64 && \
     # Install oh-my-zsh
     sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" && \
     # Install zsh plugins
@@ -207,15 +214,16 @@ RUN \
     . "${NVM_DIR}/nvm.sh" && nvm install --lts node
 
 # Dotfiles
+ARG DOTFILES_GIT_HASH
 RUN cd ~ && \
     git init --initial-branch=main && \
     git checkout -b docker && \
     git remote add origin https://github.com/xiaosq2000/dotfiles && \
     git fetch --all && \
-    git reset --hard origin/docker
+    git reset --hard ${DOTFILES_GIT_HASH}
 
-ENV TERM=xterm-256color
 SHELL ["/usr/bin/zsh", "-ic"]
+ENV TERM=xterm-256color
 
 # Clear environment variables exclusively for building to prevent pollution.
 ENV DEBIAN_FRONTEND=newt
@@ -223,3 +231,4 @@ ENV http_proxy=
 ENV HTTP_PROXY=
 ENV https_proxy=
 ENV HTTPS_PROXY=
+
