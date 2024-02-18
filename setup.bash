@@ -32,8 +32,8 @@ ZATHURA_VERSION=0.5.2
 MUPDF_VERSION=1.22.0
 ZATHURA_PDF_MUPDF_VERSION=0.4.0
 NEOVIM_VERSION=0.9.4
-TMUX_GIT_HASH=ea7136f
-DOTFILES_GIT_HASH=7177382
+TMUX_GIT_HASH=9ae69c3795ab5ef6b4d760f6398cd9281151f632
+DOTFILES_GIT_HASH=eb1049407d826b2f70c795e0af32ea4d0dc8cdcd
 # <<< as 'service.build.args' in docker-compose.yml <<< 
 
 END
@@ -61,7 +61,11 @@ http_proxy=http://host.docker.internal:1080
 https_proxy=http://host.docker.internal:1080
 HTTP_PROXY=http://host.docker.internal:1080
 HTTPS_PROXY=http://host.docker.internal:1080
-
+# RUNTIME_NETWORK_MODE=host
+# http_proxy=http://127.0.0.1:1080
+# https_proxy=http://127.0.0.1:1080
+# HTTP_PROXY=http://127.0.0.1:1080
+# HTTPS_PROXY=http://127.0.0.1:1080
 END
 )
 user_env=$(cat <<-END

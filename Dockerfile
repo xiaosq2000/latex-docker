@@ -144,9 +144,6 @@ RUN \
 ################################################################################
 ####################### Personal Development Environment #######################
 ################################################################################
-# Terminal: tmux (tpm)
-# Shell: zsh (oh-my-zsh); starship
-# Editor: neovim (packer, mason, nodejs)
 
 USER ${DOCKER_USER}
 WORKDIR ${DOCKER_HOME}
@@ -158,6 +155,8 @@ RUN sudo apt-get update && sudo apt-get install -qy --no-install-recommends \
     zsh openssh-server \
     # nvim-telescope performance
     ripgrep fd-find \
+    # vimtex hints
+    xdotool psmisc \
     && sudo rm -rf /var/lib/apt/lists/*
 
 # Set up ssh server
@@ -166,7 +165,7 @@ RUN sudo mkdir -p /var/run/sshd && \
     sudo sed -i "s/^.*PermitUserEnvironment.*$/PermitUserEnvironment yes/" /etc/ssh/sshd_config
 
 # Neovim
-ARG NEOVIM_VERSION=0.9.4
+ARG NEOVIM_VERSION
 RUN wget "https://github.com/neovim/neovim/releases/download/v${NEOVIM_VERSION}/nvim-linux64.tar.gz" -O nvim-linux64.tar.gz && \
     tar -xf nvim-linux64.tar.gz && \
     export SOURCE_DIR=${PWD}/nvim-linux64 && export DEST_DIR=${HOME}/.local && \
@@ -174,11 +173,11 @@ RUN wget "https://github.com/neovim/neovim/releases/download/v${NEOVIM_VERSION}/
     rm -r nvim-linux64.tar.gz nvim-linux64
 
 # Tmux
-ARG TMUX_GIT_HASH=ea7136f
+ARG TMUX_GIT_HASH
 RUN sudo apt-get update && sudo apt-get install -qy --no-install-recommends \
     libevent-dev ncurses-dev build-essential bison pkg-config autoconf automake \
     && sudo rm -fr /var/lib/apt/lists/{apt,dpkg,cache,log} /tmp/* /var/tmp/* && \
-    git clone --depth 1 "https://github.com/tmux/tmux" && cd tmux && \
+    git clone "https://github.com/tmux/tmux" && cd tmux && \
     git checkout ${TMUX_GIT_HASH} && \
     sh autogen.sh && \
     ./configure --prefix=${DOCKER_HOME}/.local && \
@@ -196,6 +195,9 @@ RUN LAZYGIT_VERSION=$(curl -s "https://api.github.com/repos/jesseduffield/lazygi
 # Managers and plugins
 RUN \
     # Install starship, a cross-shell prompt tool
+    sudo apt-get update && sudo apt-get install -qy --no-install-recommends \
+    musl-tools \
+    && sudo rm -fr /var/lib/apt/lists/{apt,dpkg,cache,log} /tmp/* /var/tmp/* && \
     wget -qO- https://starship.rs/install.sh | sudo sh -s -- --yes --arch x86_64 && \
     # Install oh-my-zsh
     sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" && \
@@ -203,8 +205,6 @@ RUN \
     git clone --depth 1 https://github.com/zsh-users/zsh-syntax-highlighting.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting && \
     git clone --depth 1 https://github.com/zsh-users/zsh-autosuggestions.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions && \
     git clone --depth 1 https://github.com/conda-incubator/conda-zsh-completion ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/conda-zsh-completion && \
-    # Install packer.nvim
-    git clone --depth 1 https://github.com/wbthomason/packer.nvim ~/.local/share/nvim/site/pack/packer/start/packer.nvim && \
     # Install tpm
     git clone --depth 1 https://github.com/tmux-plugins/tpm ~/.local/share/tmux/plugins/tpm && \
     # Install nvm, without modification of shell profiles
