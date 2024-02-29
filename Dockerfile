@@ -150,13 +150,13 @@ WORKDIR ${DOCKER_HOME}
 
 SHELL ["/bin/bash", "-c"]
 
+# TODO: Manually build and install everything without sudo privilege
 RUN sudo apt-get update && sudo apt-get install -qy --no-install-recommends \
     wget curl \
-    zsh openssh-server \
+    zsh direnv \
+    openssh-server \
     # nvim-telescope performance
     ripgrep fd-find \
-    # vimtex hints
-    xdotool psmisc \
     && sudo rm -rf /var/lib/apt/lists/*
 
 # Set up ssh server
@@ -198,7 +198,7 @@ RUN \
     sudo apt-get update && sudo apt-get install -qy --no-install-recommends \
     musl-tools \
     && sudo rm -fr /var/lib/apt/lists/{apt,dpkg,cache,log} /tmp/* /var/tmp/* && \
-    wget -qO- https://starship.rs/install.sh | sudo sh -s -- --yes --arch x86_64 && \
+    wget -qO- https://starship.rs/install.sh | sh -s -- --yes -b ~/.local && \
     # Install oh-my-zsh
     sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" && \
     # Install zsh plugins
@@ -217,11 +217,26 @@ RUN \
 ARG DOTFILES_GIT_HASH
 RUN cd ~ && \
     git init --initial-branch=main && \
-    git checkout -b docker && \
     git remote add origin https://github.com/xiaosq2000/dotfiles && \
     git fetch --all && \
     git reset --hard ${DOTFILES_GIT_HASH}
 
+# Python
+RUN \
+    # Download the latest pyenv (python version and venv manager)
+    curl https://pyenv.run | bash && \
+    # Download the latest miniconda
+    mkdir -p ~/.local/miniconda3 && \
+    wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/.local/miniconda.sh && \
+    bash ~/.local/miniconda.sh -b -u -p ~/.local/miniconda3 && \
+    rm -rf ~/.local/miniconda.sh && \
+    # Set up conda and pyenv, without conflicts, Ref: https://stackoverflow.com/a/58045893/11393911
+    echo 'export PYENV_ROOT="$HOME/.pyenv"' >> ~/.zshrc && \
+    echo 'command -v pyenv >/dev/null || export PATH="$PYENV_ROOT/bin:$PATH"' >> ~/.zshrc && \
+    echo 'eval "$(pyenv init -)"' >> ~/.zshrc && \
+    cd ~/.local/miniconda3/bin && \
+    ./conda init zsh && \
+    ./conda config --set auto_activate_base false
 SHELL ["/usr/bin/zsh", "-ic"]
 ENV TERM=xterm-256color
 
