@@ -150,6 +150,8 @@ WORKDIR ${DOCKER_HOME}
 
 SHELL ["/bin/bash", "-c"]
 
+ENV XDG_PREFIX_HOME ${DOCKER_HOME}/.local
+
 # TODO: Manually build and install everything without sudo privilege
 RUN sudo apt-get update && sudo apt-get install -qy --no-install-recommends \
     wget curl \
@@ -189,7 +191,7 @@ RUN sudo apt-get update && sudo apt-get install -qy --no-install-recommends \
 RUN LAZYGIT_VERSION=$(curl -s "https://api.github.com/repos/jesseduffield/lazygit/releases/latest" | grep -Po '"tag_name": "v\K[^"]*') && \
     curl -Lo lazygit.tar.gz "https://github.com/jesseduffield/lazygit/releases/latest/download/lazygit_${LAZYGIT_VERSION}_Linux_x86_64.tar.gz" && \
     tar xf lazygit.tar.gz lazygit && \
-    install -Dm 755 lazygit ~/.local/bin && \
+    install -Dm 755 lazygit ${XDG_PREFIX_HOME}/bin && \
     rm lazygit.tar.gz lazygit
 
 # Managers and plugins
@@ -198,45 +200,44 @@ RUN \
     sudo apt-get update && sudo apt-get install -qy --no-install-recommends \
     musl-tools \
     && sudo rm -fr /var/lib/apt/lists/{apt,dpkg,cache,log} /tmp/* /var/tmp/* && \
-    wget -qO- https://starship.rs/install.sh | sh -s -- --yes -b ~/.local/bin && \
+    wget -qO- https://starship.rs/install.sh | sh -s -- --yes -b ${XDG_PREFIX_HOME}/bin && \
     # Install oh-my-zsh
     sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" && \
-    # Install zsh plugins
-    git clone --depth 1 https://github.com/zsh-users/zsh-syntax-highlighting.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting && \
-    git clone --depth 1 https://github.com/zsh-users/zsh-autosuggestions.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions && \
-    git clone --depth 1 https://github.com/conda-incubator/conda-zsh-completion ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/conda-zsh-completion && \
     # Install tpm
-    git clone --depth 1 https://github.com/tmux-plugins/tpm ~/.local/share/tmux/plugins/tpm && \
+    git clone --depth 1 https://github.com/tmux-plugins/tpm ${XDG_PREFIX_HOME}/share/tmux/plugins/tpm && \
     # Install nvm, without modification of shell profiles
     export NVM_DIR=~/.config/nvm && mkdir -p ${NVM_DIR} && \
     PROFILE=/dev/null bash -c 'wget -qO- "https://github.com/nvm-sh/nvm/raw/master/install.sh" | bash' && \
     # Load nvm and install the latest lts nodejs
     . "${NVM_DIR}/nvm.sh" && nvm install --lts node
 
-# Dotfiles
-ARG DOTFILES_GIT_HASH
-RUN cd ~ && \
-    git init --initial-branch=main && \
-    git remote add origin https://github.com/xiaosq2000/dotfiles && \
-    git fetch --all && \
-    git reset --hard ${DOTFILES_GIT_HASH}
-
 # Python
 RUN \
     # Download the latest pyenv (python version and venv manager)
     curl https://pyenv.run | bash && \
     # Download the latest miniconda
-    mkdir -p ~/.local/miniconda3 && \
-    wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/.local/miniconda.sh && \
-    bash ~/.local/miniconda.sh -b -u -p ~/.local/miniconda3 && \
-    rm -rf ~/.local/miniconda.sh && \
+    mkdir -p ${XDG_PREFIX_HOME}/miniconda3 && \
+    wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ${XDG_PREFIX_HOME}/miniconda.sh && \
+    bash ${XDG_PREFIX_HOME}/miniconda.sh -b -u -p ${XDG_PREFIX_HOME}/miniconda3 && \
+    rm -rf ${XDG_PREFIX_HOME}/miniconda.sh && \
     # Set up conda and pyenv, without conflicts, Ref: https://stackoverflow.com/a/58045893/11393911
-    echo 'export PYENV_ROOT="$HOME/.pyenv"' >> ~/.zshrc && \
-    echo 'command -v pyenv >/dev/null || export PATH="$PYENV_ROOT/bin:$PATH"' >> ~/.zshrc && \
-    echo 'eval "$(pyenv init -)"' >> ~/.zshrc && \
-    cd ~/.local/miniconda3/bin && \
-    ./conda init zsh && \
+    # echo 'export PYENV_ROOT="$HOME/.pyenv"' >> ~/.zshrc && \
+    # echo 'command -v pyenv >/dev/null || export PATH="$PYENV_ROOT/bin:$PATH"' >> ~/.zshrc && \
+    # echo 'eval "$(pyenv init -)"' >> ~/.zshrc && \
+    cd ${XDG_PREFIX_HOME}/miniconda3/bin && \
+    # ./conda init zsh && \
     ./conda config --set auto_activate_base false
+
+# Dotfiles
+# ARG DOTFILES_GIT_HASH
+ARG SETUP_TIMESTAMP
+RUN cd ~ && \
+    git init && \
+    git branch -M main && \
+    git remote add origin https://github.com/xiaosq2000/dotfiles && \
+    git fetch --all && \
+    git reset --hard origin/main
+
 SHELL ["/usr/bin/zsh", "-ic"]
 ENV TERM=xterm-256color
 
