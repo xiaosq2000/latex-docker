@@ -1,7 +1,6 @@
-version: "3.8"
 services:
   latex:
-    image: latex:dev
+    image: latex
     container_name: latex
     env_file: ./.env
     user: ${DOCKER_UID}:${DOCKER_GID}
@@ -21,9 +20,10 @@ services:
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
       # dbus socket
       - /run/user/${DOCKER_UID}/at-spi:/run/user/${DOCKER_UID}/at-spi:rw
-      # workspaces
-      - ~/dev/notes:${DOCKER_HOME}/dev/notes/:rw
-      - ~/dev/presentations:${DOCKER_HOME}/dev/presentations/:rw
+      # workspace
+      - ~/Documents:${DOCKER_HOME}/Documents:rw
+      - ~/Pictures:${DOCKER_HOME}/Pictures:rw
+      - ~/Videos:${DOCKER_HOME}/Videos:rw
     build:
       context: .
       network: ${BUILDTIME_NETWORK_MODE}

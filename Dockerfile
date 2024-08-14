@@ -118,29 +118,6 @@ RUN cd zathura-pdf-mupdf-${ZATHURA_PDF_MUPDF_VERSION} && \
     rm -r ../../zathura-pdf-mupdf-${ZATHURA_PDF_MUPDF_VERSION}
 ENV PDFVIEWER=zathura
 
-# Typefaces 
-RUN mkdir -p /usr/local/share/fonts/
-WORKDIR /usr/local/share/fonts/
-COPY ./downloads/typefaces/SourceSans/OTF/*.otf .
-COPY ./downloads/typefaces/SourceSerif/source-serif-4.005_Desktop/OTF/*.otf .
-COPY ./downloads/typefaces/SourceHanMono/SourceHanMono.ttc .
-COPY ./downloads/typefaces/SourceHanSansSC/OTF/SimplifiedChinese/*.otf .
-COPY ./downloads/typefaces/SourceHanSerifSC/OTF/SimplifiedChinese/*.otf .
-COPY ./downloads/typefaces/SourceCodePro/OTF/*.otf .
-COPY ./downloads/typefaces/NerdFontsSourceCodePro/*.ttf .
-COPY ./downloads/typefaces/FiraSans/Fira-4.106/otf/*.otf .
-COPY ./downloads/typefaces/FiraCode/ttf/*.ttf .
-COPY ./downloads/typefaces/TexGyre*/*.otf .
-RUN \
-    # Refresh fonts cache.
-    fc-cache -fs && \
-    # Generate the list of some available typefaces for convenience.
-    mkdir -p ~/typefaces_lists && \
-    fc-list -f "%{family}\n" | grep -i 'Source' > ~/typefaces_lists/adobe.txt && \
-    fc-list -f "%{family}\n" | grep -i 'Fira' > ~/typefaces_lists/fira.txt && \
-    fc-list -f "%{family}\n" | grep -i 'Gyre' > ~/typefaces_lists/TexGyre.txt && \
-    fc-list -f "%{family}\n" :lang=zh-cn > ~/typefaces_lists/zh-cn.txt
-
 ################################################################################
 ####################### Personal Development Environment #######################
 ################################################################################
@@ -150,14 +127,19 @@ WORKDIR ${DOCKER_HOME}
 
 SHELL ["/bin/bash", "-c"]
 
-ENV XDG_PREFIX_HOME ${DOCKER_HOME}/.local
+ENV XDG_DATA_HOME=${DOCKER_HOME}/.local/share
+ENV XDG_CONFIG_HOME=${DOCKER_HOME}/.config
+ENV XDG_STATE_HOME=${DOCKER_HOME}/.local/state
+ENV XDG_CACHE_HOME=${DOCKER_HOME}/.cache
+ENV XDG_PREFIX_HOME=${DOCKER_HOME}/.local
 
 # TODO: Manually build and install everything without sudo privilege
 RUN sudo apt-get update && sudo apt-get install -qy --no-install-recommends \
+    lsb-release \
     wget curl \
     zsh direnv \
+    python3-venv python3-pip \
     openssh-server \
-    # nvim-telescope performance
     ripgrep fd-find \
     && sudo rm -rf /var/lib/apt/lists/*
 
@@ -211,22 +193,22 @@ RUN \
     # Load nvm and install the latest lts nodejs
     . "${NVM_DIR}/nvm.sh" && nvm install --lts node
 
-# Python
-RUN \
-    # Download the latest pyenv (python version and venv manager)
-    curl https://pyenv.run | bash && \
-    # Download the latest miniconda
-    mkdir -p ${XDG_PREFIX_HOME}/miniconda3 && \
-    wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ${XDG_PREFIX_HOME}/miniconda.sh && \
-    bash ${XDG_PREFIX_HOME}/miniconda.sh -b -u -p ${XDG_PREFIX_HOME}/miniconda3 && \
-    rm -rf ${XDG_PREFIX_HOME}/miniconda.sh && \
-    # Set up conda and pyenv, without conflicts, Ref: https://stackoverflow.com/a/58045893/11393911
-    # echo 'export PYENV_ROOT="$HOME/.pyenv"' >> ~/.zshrc && \
-    # echo 'command -v pyenv >/dev/null || export PATH="$PYENV_ROOT/bin:$PATH"' >> ~/.zshrc && \
-    # echo 'eval "$(pyenv init -)"' >> ~/.zshrc && \
-    cd ${XDG_PREFIX_HOME}/miniconda3/bin && \
-    # ./conda init zsh && \
-    ./conda config --set auto_activate_base false
+# # Python
+# RUN \
+#     # Download the latest pyenv (python version and venv manager)
+#     curl https://pyenv.run | bash && \
+#     # Download the latest miniconda
+#     mkdir -p ${XDG_PREFIX_HOME}/miniconda3 && \
+#     wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ${XDG_PREFIX_HOME}/miniconda.sh && \
+#     bash ${XDG_PREFIX_HOME}/miniconda.sh -b -u -p ${XDG_PREFIX_HOME}/miniconda3 && \
+#     rm -rf ${XDG_PREFIX_HOME}/miniconda.sh && \
+#     # Set up conda and pyenv, without conflicts, Ref: https://stackoverflow.com/a/58045893/11393911
+#     # echo 'export PYENV_ROOT="$HOME/.pyenv"' >> ~/.zshrc && \
+#     # echo 'command -v pyenv >/dev/null || export PATH="$PYENV_ROOT/bin:$PATH"' >> ~/.zshrc && \
+#     # echo 'eval "$(pyenv init -)"' >> ~/.zshrc && \
+#     cd ${XDG_PREFIX_HOME}/miniconda3/bin && \
+#     # ./conda init zsh && \
+#     ./conda config --set auto_activate_base false
 
 # Dotfiles
 # ARG DOTFILES_GIT_HASH
@@ -241,10 +223,19 @@ RUN cd ~ && \
 SHELL ["/usr/bin/zsh", "-ic"]
 ENV TERM=xterm-256color
 
+# Micromamba
+RUN cd ${XDG_PREFIX_HOME} && \
+    # For Linux Intel (x86_64)
+    curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest | tar -xvj bin/micromamba
+
+# Typefaces
+RUN mkdir -p ${XDG_DATA_HOME}/fonts
+COPY ./downloads/typefaces/ ${XDG_DATA_HOME}/fonts
+RUN fc-cache -f
+
 # Clear environment variables exclusively for building to prevent pollution.
 ENV DEBIAN_FRONTEND=newt
 ENV http_proxy=
 ENV HTTP_PROXY=
 ENV https_proxy=
 ENV HTTPS_PROXY=
-
