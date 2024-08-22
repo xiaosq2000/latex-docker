@@ -70,11 +70,13 @@ RUN apt-get update && \
     xauth x11-apps xclip dbus dbus-x11 \
     # building
     build-essential \
-    meson ninja-build \
+    cmake meson ninja-build \
     # zathura dependencies
     libgtk-3-dev libmagic-dev gettext libcanberra-gtk3-module \
     # forward and inverse searching
     libsynctex-dev \
+    libjson-glib-dev \
+    libsqlite3-dev \
     xdg-utils && \
     # Clear
     rm -rf /var/lib/apt/lists/*

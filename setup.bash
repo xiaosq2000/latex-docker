@@ -2,7 +2,7 @@
 
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Arguments >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 TO_DOWNLOAD=true
-TO_EXTRACT=false
+TO_EXTRACT=true
 TO_BUILD=true
 BUILD_WITH_PROXY=false
 RUN_WITH_NVIDIA=true
@@ -11,40 +11,34 @@ RUN_WITH_NVIDIA=true
 # Be safe.
 set -euo pipefail
 
-# Simple CLI Logging
-NOCOLOR='\033[0m' # No Color
-# Regular Colors
-BLACK='\033[0;30m'  # Black
-RED='\033[0;31m'    # Red
-GREEN='\033[0;32m'  # Green
-YELLOW='\033[0;33m' # Yellow
-BLUE='\033[0;34m'   # Blue
-PURPLE='\033[0;35m' # Purple
-CYAN='\033[0;36m'   # Cyan
-WHITE='\033[0;37m'  # White
-# BOLD
-BBLACK='\033[1;30m'  # Black
-BRED='\033[1;31m'    # Red
-BGREEN='\033[1;32m'  # Green
-BYELLOW='\033[1;33m' # Yellow
-BBLUE='\033[1;34m'   # Blue
-BPURPLE='\033[1;35m' # Purple
-BCYAN='\033[1;36m'   # Cyan
-BWHITE='\033[1;37m'  # White
+# Logging
+INDENT='  '
+
+RESET=$(tput sgr0)
+BOLD=$(tput bold)
+RED=$(tput setaf 1)
+GREEN=$(tput setaf 2)
+YELLOW=$(tput setaf 3)
+BLUE=$(tput setaf 4)
+PURPLE=$(tput setaf 5)
+CYAN=$(tput setaf 6)
 
 error() {
-	echo -e "${BRED}ERROR:${NOCOLOR} $1"
-}
-info() {
-	echo -e "${BGREEN}INFO:${NOCOLOR} $1"
+    printf "${RED}${BOLD}ERROR:${RESET} %s\n" "$@" >&2
 }
 warning() {
-	echo -e "${BYELLOW}WARNING:${NOCOLOR} $1"
+    printf "${YELLOW}${BOLD}WARNING:${RESET} %s\n" "$@" >&2
+}
+info() {
+    printf "${GREEN}${BOLD}INFO:${RESET} %s\n" "$@"
+}
+debug() {
+    printf "${BOLD}DEBUG:${RESET} %s\n" "$@"
 }
 
 # Check permission. Superuser privilege is used to mount the iso.
-if ! [ $(id -u) = 0 ]; then
-	error "The script needs root privilege to run. Try again with sudo." >&2
+if [[ $(id -u) -ne 0 ]]; then
+	error "The script needs root privilege to run. Try again with sudo."
 	exit 1
 fi
 
@@ -67,10 +61,10 @@ buildtime_env=$(
 		BASE_IMAGE=ubuntu:22.04
 		TEXLIVE_VERSION=2024
 		TEXLIVE_SCHEME=full
-		GIRARA_VERSION=0.4.0
-		ZATHURA_VERSION=0.5.2
-		MUPDF_VERSION=1.22.0
-		ZATHURA_PDF_MUPDF_VERSION=0.4.0
+		GIRARA_VERSION=0.4.4
+		ZATHURA_VERSION=0.5.8
+		MUPDF_VERSION=1.24.8
+		ZATHURA_PDF_MUPDF_VERSION=0.4.4
 		NEOVIM_VERSION=0.10.1
 		TMUX_GIT_HASH=9ae69c3
 		# DOTFILES_GIT_HASH=9233a3e
@@ -85,9 +79,6 @@ buildtime_proxy_env=$(
 
 		BUILDTIME_NETWORK_MODE=host
 		# >>> as 'service.build.args' in docker-compose.yml >>> 
-		# Pay attention: 
-		# http_proxy: \${buildtime_http_proxy}
-		# ...
 		buildtime_http_proxy=http://127.0.0.1:1080
 		buildtime_https_proxy=http://127.0.0.1:1080
 		BUILDTIME_HTTP_PROXY=http://127.0.0.1:1080
@@ -96,6 +87,7 @@ buildtime_proxy_env=$(
 
 	END
 )
+
 runtime_networking_env=$(
 	cat <<-END
 
@@ -146,34 +138,37 @@ nvidia_runtime_env=$(
 )
 # <<<<<<<<<<<<<<<<<<<<<<<<<< Environment Variables <<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
-echo "# The file is managed by 'setup.bash'." >>${env_file}
+echo "# The file is managed by 'setup.bash'." >> ${env_file}
+info "Environment variables are saved to ${env_file}."
 
 # Verify and save the categories of environment variables.
-if [ "${TO_BUILD}" = true ]; then
-	echo "${buildtime_env}" >>${env_file}
+if [[ "${TO_BUILD}" == "true" ]]; then
+	echo "${buildtime_env}" >> ${env_file}
 else
-	warning "TO_BUILD=false\n\tMake sure the Docker image is ready."
+	warning "TO_BUILD=false"
 fi
-if [ "${BUILD_WITH_PROXY}" = true ]; then
-	echo "${buildtime_proxy_env}" >>${env_file}
+
+if [[ "${BUILD_WITH_PROXY}" == "true" ]]; then
+	echo "${buildtime_proxy_env}" >> ${env_file}
 else
-	warning "BUILD_WITH_PROXY=false\n\tChinese GFW may corrupt networking in the building stage."
+	warning "BUILD_WITH_PROXY=false"
 fi
+
 warning "You may check out the runtime networking environment variables."
-echo "${runtime_networking_env}" >>${env_file}
-echo "${user_env}" >>${env_file}
+echo "${runtime_networking_env}" >> ${env_file}
+echo "${user_env}" >> ${env_file}
 if [ "${RUN_WITH_NVIDIA}" = true ]; then
-	echo "${nvidia_runtime_env}" >>${env_file}
+	echo "${nvidia_runtime_env}" >> ${env_file}
 else
-	echo "${runtime_env}" >>${env_file}
+	echo "${runtime_env}" >> ${env_file}
 fi
 
 info "Environment variables are saved to ${env_file}"
 # # Print the env_file to stdout
 # cat ${env_file}
 
-# Load varibles from ${env_file} for further usage.
 # Reference: https://stackoverflow.com/a/30969768
+debug "Load varibles from ${env_file} for following usage."
 set -o allexport && source ${env_file} && set +o allexport
 
 # >>>>>>>>>>>>>>>>>>>>>>>>>> Environment Variables >>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -189,6 +184,7 @@ wget_paths=()
 append_to_list() {
 	# $1: flag
 	if [ -z "$(eval echo "\$$1")" ]; then
+        error "Invalid flag."
 		return 0
 	fi
 	# $2: url
@@ -238,13 +234,16 @@ if [ ! -f ${downloads_dir}/texlive${TEXLIVE_VERSION}.iso ]; then
 		info "MD5 Verified."
 	fi
 fi
-# Mount the ISO.
+
 # Reference: https://unix.stackexchange.com/a/151401
+info "Mount the ISO."
 mkdir -p ${downloads_dir}/texlive
 if ! mountpoint -q -- "${downloads_dir}/texlive"; then
 	mount -r ${downloads_dir}/texlive${TEXLIVE_VERSION}.iso ${downloads_dir}/texlive
 fi
-# Generate the installation profile of TexLive, Ref: https://www.tug.org/texlive/doc/install-tl.html#PROFILES
+
+info "Generate the installation profile of TexLive"
+# Reference: https://www.tug.org/texlive/doc/install-tl.html#PROFILES
 install_profile=$(
 	cat <<-END
 		selected_scheme scheme-${TEXLIVE_SCHEME}
@@ -276,8 +275,8 @@ install_profile=$(
 		tlpdbopt_w32_multi_user 1
 	END
 )
-echo "# The file is managed by 'setup.bash'." >${downloads_dir}/texlive.profile
-echo "${install_profile}" >>${downloads_dir}/texlive.profile
+echo "# The file is managed by 'setup.bash'." > "${downloads_dir}/texlive.profile"
+echo "${install_profile}" >> "${downloads_dir}/texlive.profile"
 info "TexLive installation profile is generated to ${downloads_dir}/texlive.profile"
 
 # PDF viewer related staff
@@ -326,7 +325,7 @@ append_to_list 1 "https://www.gust.org.pl/projects/e-foundry/tex-gyre/termes/qtm
 if [ "${TO_DOWNLOAD}" = true ]; then
 	download
 else
-	warning "TO_DOWNLOAD=false\n\tYou are recommended to leave this option on."
+	warning "TO_DOWNLOAD=false"
 fi
 
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Downloads >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -337,14 +336,14 @@ extract() {
 	info "Extracting all the typefaces."
 	# Reference: https://stackoverflow.com/a/2318189
 	cd ${downloads_dir}/typefaces/
-	find . -name "*.tar.gz" | while read filename; do tar -zxf "$filename" --directory "$(dirname "$filename")"; done
-	find . -name "*.zip" | while read filename; do unzip -qq -o -d "$(dirname "$filename")" "$filename"; done
+	find . -name "*.tar.gz" | while read filename; do tar -zxf "$filename" --directory "$(dirname "$filename")" && rm "${filename}"; done
+	find . -name "*.zip" | while read filename; do unzip -qq -o -d "$(dirname "$filename")" "$filename" && rm "${filename}"; done
 }
 
 if [ "${TO_EXTRACT}" = true ]; then
 	extract
 else
-	warning "TO_EXTRACT=false\n\tYou are recommended to leave this option on."
+	warning "TO_EXTRACT=false"
 fi
 
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Extraction >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
