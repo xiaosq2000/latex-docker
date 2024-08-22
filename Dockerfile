@@ -1,6 +1,7 @@
 # syntax=docker/dockerfile:1
 ARG BASE_IMAGE
 FROM ${BASE_IMAGE} as base
+SHELL ["/bin/bash", "-ic"]
 # Networking proxies
 ARG http_proxy 
 ARG HTTP_PROXY 
@@ -41,15 +42,21 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/* && \
     # Set locales
     sed -i -e 's/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen && locale-gen
+
+# Set the parent directory for all dependencies (not installed).
+ARG XDG_PREFIX_DIR=/usr/local
+ENV XDG_PREFIX_DIR=${XDG_PREFIX_DIR}
+
 # Install TexLive
 ARG TEXLIVE_VERSION
 COPY downloads/texlive /texlive
 COPY downloads/texlive.profile /texlive/texlive.profile
 WORKDIR /texlive
 RUN ./install-tl -profile=./texlive.profile
-ENV PATH=/usr/local/texlive/${TEXLIVE_VERSION}/texmf-dist/doc/info:${PATH}
-ENV PATH=/usr/local/texlive/${TEXLIVE_VERSION}/texmf-dist/doc/man:${PATH}
-ENV PATH=/usr/local/texlive/${TEXLIVE_VERSION}/bin/x86_64-linux:$PATH
+ENV PATH=${XDG_PREFIX_DIR}/texlive/${TEXLIVE_VERSION}/texmf-dist/doc/info:${PATH}
+ENV PATH=${XDG_PREFIX_DIR}/texlive/${TEXLIVE_VERSION}/texmf-dist/doc/man:${PATH}
+ENV PATH=${XDG_PREFIX_DIR}/texlive/${TEXLIVE_VERSION}/bin/x86_64-linux:$PATH
+
 # Set up a non-root user within the sudo group.
 ARG DOCKER_USER 
 ARG DOCKER_UID
@@ -59,6 +66,7 @@ RUN groupadd -g ${DOCKER_GID} ${DOCKER_USER} && \
     useradd -r -m -d ${DOCKER_HOME} -s /bin/bash -g ${DOCKER_GID} -u ${DOCKER_UID} -G sudo ${DOCKER_USER} && \
     echo ${DOCKER_USER} ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/${DOCKER_USER} && \
     chmod 0440 /etc/sudoers.d/${DOCKER_USER}
+
 # Zathura pdf viewer
 # TODO: multistage build for build and runtime dependencies
 RUN apt-get update && \
@@ -69,55 +77,72 @@ RUN apt-get update && \
     # x11 client and dbus support
     xauth x11-apps xclip dbus dbus-x11 \
     # building
-    build-essential \
-    cmake meson ninja-build \
-    # zathura dependencies
-    libgtk-3-dev libmagic-dev gettext libcanberra-gtk3-module \
+    build-essential cmake meson ninja-build \
     # forward and inverse searching
     libsynctex-dev \
-    libjson-glib-dev \
-    libsqlite3-dev \
-    xdg-utils && \
+    # xdg-open
+    xdg-utils \
+    # zathura compiling dependencies
+    libgtk-3-dev libmagic-dev gettext libcanberra-gtk3-module libjson-glib-dev libsqlite3-dev \
     # Clear
-    rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/*
 
-# Set the parent directory for all dependencies (not installed).
-ARG DEPENDENCIES_DIR=/usr/local
-ENV DEPENDENCIES_DIR=${DEPENDENCIES_DIR}
-WORKDIR ${DEPENDENCIES_DIR}
+# zathura compiling dependencies
+ARG TO_BUILD_ZATHURA
+RUN if [[ ${TO_BUILD_ZATHURA} == "false" ]]; then \
+    apt-get update && \
+    apt-get install -qy --no-install-recommends \
+    zathura \
+    && rm -rf /var/lib/apt/lists/*; \
+    fi
 
-ARG GIRARA_VERSION
-ADD downloads/girara-${GIRARA_VERSION}.tar.xz .
-RUN cd girara-${GIRARA_VERSION} && \
-    mkdir build && \
-    meson build && \
-    cd build && \
-    ninja && \
-    ninja install && \
-    rm -r ../../girara-${GIRARA_VERSION}
-ARG ZATHURA_VERSION=0.5.2
-ADD downloads/zathura-${ZATHURA_VERSION}.tar.xz .
-RUN cd zathura-${ZATHURA_VERSION} && \
-    mkdir build && \
-    meson build && \
-    cd build && \
-    ninja && \
-    ninja install && \
-    rm -r ../../zathura-${ZATHURA_VERSION}
-ARG MUPDF_VERSION=1.22.0
-ADD downloads/mupdf-${MUPDF_VERSION}-source.tar.gz .
-RUN cd mupdf-${MUPDF_VERSION}-source && \
-    make XCFLAGS='-fPIC' HAVE_X11=no HAVE_GLUT=no prefix=/usr/local install && \
-    rm -r ../mupdf-${MUPDF_VERSION}-source
-ARG ZATHURA_PDF_MUPDF_VERSION=0.4.0
-ADD downloads/zathura-pdf-mupdf-${ZATHURA_PDF_MUPDF_VERSION}.tar.xz .
-RUN cd zathura-pdf-mupdf-${ZATHURA_PDF_MUPDF_VERSION} && \
-    mkdir build && \
-    meson build && \
-    cd build && \
-    ninja && \
-    ninja install && \
-    rm -r ../../zathura-pdf-mupdf-${ZATHURA_PDF_MUPDF_VERSION}
+# TODO: Use ONBUILD instructions in Dockerfile to achieve conditonal building.
+# 
+# WORKDIR ${XDG_PREFIX_DIR}
+#
+# RUN if [[ -n ${TO_BUILD_ZATHURA} ]]; then \
+#     apt-get update && \
+#     apt-get install -qy --no-install-recommends \
+#     libgtk-3-dev libmagic-dev gettext libcanberra-gtk3-module libjson-glib-dev libsqlite3-dev \
+#     && rm -rf /var/lib/apt/lists/*; \
+#     fi
+# 
+# ARG GIRARA_VERSION
+# ADD downloads/girara-${GIRARA_VERSION}.tar.xz .
+# RUN cd girara-${GIRARA_VERSION} && \
+#     mkdir build && \
+#     meson build && \
+#     cd build && \
+#     ninja && \
+#     ninja install && \
+#     rm -r ../../girara-${GIRARA_VERSION}
+# 
+# ARG ZATHURA_VERSION
+# ADD downloads/zathura-${ZATHURA_VERSION}.tar.xz .
+# RUN cd zathura-${ZATHURA_VERSION} && \
+#     mkdir build && \
+#     meson build && \
+#     cd build && \
+#     ninja && \
+#     ninja install && \
+#     rm -r ../../zathura-${ZATHURA_VERSION}
+# 
+# ARG MUPDF_VERSION
+# ADD downloads/mupdf-${MUPDF_VERSION}-source.tar.gz .
+# RUN cd mupdf-${MUPDF_VERSION}-source && \
+#     make XCFLAGS='-fPIC' HAVE_X11=no HAVE_GLUT=no prefix=${XDG_PREFIX_DIR} install && \
+#     rm -r ../mupdf-${MUPDF_VERSION}-source
+# 
+# ARG ZATHURA_PDF_MUPDF_VERSION
+# ADD downloads/zathura-pdf-mupdf-${ZATHURA_PDF_MUPDF_VERSION}.tar.xz .
+# RUN cd zathura-pdf-mupdf-${ZATHURA_PDF_MUPDF_VERSION} && \
+#     mkdir build && \
+#     meson build && \
+#     cd build && \
+#     ninja && \
+#     ninja install && \
+#     rm -r ../../zathura-pdf-mupdf-${ZATHURA_PDF_MUPDF_VERSION}
+
 ENV PDFVIEWER=zathura
 
 ################################################################################
@@ -195,26 +220,14 @@ RUN \
     # Load nvm and install the latest lts nodejs
     . "${NVM_DIR}/nvm.sh" && nvm install --lts node
 
-# # Python
-# RUN \
-#     # Download the latest pyenv (python version and venv manager)
-#     curl https://pyenv.run | bash && \
-#     # Download the latest miniconda
-#     mkdir -p ${XDG_PREFIX_HOME}/miniconda3 && \
-#     wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ${XDG_PREFIX_HOME}/miniconda.sh && \
-#     bash ${XDG_PREFIX_HOME}/miniconda.sh -b -u -p ${XDG_PREFIX_HOME}/miniconda3 && \
-#     rm -rf ${XDG_PREFIX_HOME}/miniconda.sh && \
-#     # Set up conda and pyenv, without conflicts, Ref: https://stackoverflow.com/a/58045893/11393911
-#     # echo 'export PYENV_ROOT="$HOME/.pyenv"' >> ~/.zshrc && \
-#     # echo 'command -v pyenv >/dev/null || export PATH="$PYENV_ROOT/bin:$PATH"' >> ~/.zshrc && \
-#     # echo 'eval "$(pyenv init -)"' >> ~/.zshrc && \
-#     cd ${XDG_PREFIX_HOME}/miniconda3/bin && \
-#     # ./conda init zsh && \
-#     ./conda config --set auto_activate_base false
+# Micromamba (For Linux Intel (x86_64))
+RUN cd ${XDG_PREFIX_HOME} && \
+    curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest | tar -xvj bin/micromamba
+
+# A trick to get rid of using Docker building cache from now on.
+ARG SETUP_TIMESTAMP
 
 # Dotfiles
-# ARG DOTFILES_GIT_HASH
-ARG SETUP_TIMESTAMP
 RUN cd ~ && \
     git init && \
     git branch -M main && \
@@ -222,18 +235,13 @@ RUN cd ~ && \
     git fetch --all && \
     git reset --hard origin/main
 
-SHELL ["/usr/bin/zsh", "-ic"]
-ENV TERM=xterm-256color
-
-# Micromamba
-RUN cd ${XDG_PREFIX_HOME} && \
-    # For Linux Intel (x86_64)
-    curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest | tar -xvj bin/micromamba
-
 # Typefaces
 RUN mkdir -p ${XDG_DATA_HOME}/fonts
 COPY ./downloads/typefaces/ ${XDG_DATA_HOME}/fonts
 RUN fc-cache -f
+
+SHELL ["/usr/bin/zsh", "-ic"]
+ENV TERM=xterm-256color
 
 # Clear environment variables exclusively for building to prevent pollution.
 ENV DEBIAN_FRONTEND=newt

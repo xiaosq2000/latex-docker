@@ -1,55 +1,53 @@
 services:
   latex:
-    image: latex
+    build:
+      args:
+        BASE_IMAGE: ${BASE_IMAGE}
+        BUILDTIME_HTTPS_PROXY: ${BUILDTIME_HTTPS_PROXY}
+        BUILDTIME_HTTP_PROXY: ${BUILDTIME_HTTP_PROXY}
+        BUILDTIME_NETWORK_MODE: ${BUILDTIME_NETWORK_MODE}
+        DOCKER_BUILDKIT: ${DOCKER_BUILDKIT}
+        DOCKER_GID: ${DOCKER_GID}
+        DOCKER_HOME: ${DOCKER_HOME}
+        DOCKER_UID: ${DOCKER_UID}
+        DOCKER_USER: ${DOCKER_USER}
+        NEOVIM_VERSION: ${NEOVIM_VERSION}
+        SETUP_TIMESTAMP: ${SETUP_TIMESTAMP}
+        TEXLIVE_SCHEME: ${TEXLIVE_SCHEME}
+        TEXLIVE_VERSION: ${TEXLIVE_VERSION}
+        TMUX_GIT_HASH: ${TMUX_GIT_HASH}
+        TO_BUILD_ZATHURA: ${TO_BUILD_ZATHURA}
+        XDG_PREFIX_DIR: ${XDG_PREFIX_DIR}
+        buildtime_http_proxy: ${buildtime_http_proxy}
+        buildtime_https_proxy: ${buildtime_https_proxy}
+      context: .
+      dockerfile: Dockerfile
+      network: ${BUILDTIME_NETWORK_MODE}
     container_name: latex
-    env_file: ./.env
-    user: ${DOCKER_UID}:${DOCKER_GID}
-    network_mode: ${RUNTIME_NETWORK_MODE}
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    runtime: ${RUNTIME}
     deploy:
       resources:
         reservations:
           devices:
-            - driver: nvidia
-              device_ids: ['0']
-              capabilities: ["gpu"]
-    volumes:
-      # x11 socket
-      - /tmp/.X11-unix:/tmp/.X11-unix:rw
-      # dbus socket
-      - /run/user/${DOCKER_UID}/at-spi:/run/user/${DOCKER_UID}/at-spi:rw
-      # workspace
-      - ~/Documents:${DOCKER_HOME}/Documents:rw
-      - ~/Pictures:${DOCKER_HOME}/Pictures:rw
-      - ~/Videos:${DOCKER_HOME}/Videos:rw
-    build:
-      context: .
-      network: ${BUILDTIME_NETWORK_MODE}
-      dockerfile: Dockerfile
-      args:
-        DOCKER_BUILDKIT: ${DOCKER_BUILDKIT}
-        BASE_IMAGE: ${BASE_IMAGE}
-        TEXLIVE_VERSION: ${TEXLIVE_VERSION}
-        TEXLIVE_SCHEME: ${TEXLIVE_SCHEME}
-        GIRARA_VERSION: ${GIRARA_VERSION}
-        ZATHURA_VERSION: ${ZATHURA_VERSION}
-        MUPDF_VERSION: ${MUPDF_VERSION}
-        ZATHURA_PDF_MUPDF_VERSION: ${ZATHURA_PDF_MUPDF_VERSION}
-        NEOVIM_VERSION: ${NEOVIM_VERSION}
-        TMUX_GIT_HASH: ${TMUX_GIT_HASH}
-        SETUP_TIMESTAMP: ${SETUP_TIMESTAMP}
-        http_proxy: ${buildtime_http_proxy}
-        https_proxy: ${buildtime_https_proxy}
-        HTTP_PROXY: ${BUILDTIME_HTTP_PROXY}
-        HTTPS_PROXY: ${BUILDTIME_HTTPS_PROXY}
-        DOCKER_USER: ${DOCKER_USER}
-        DOCKER_HOME: ${DOCKER_HOME}
-        DOCKER_UID: ${DOCKER_UID}
-        DOCKER_GID: ${DOCKER_GID}
+          - capabilities:
+            - gpu
+            device_ids:
+            - '0'
+            driver: nvidia
+    env_file: ./.env
+    extra_hosts:
+    - host.docker.internal:host-gateway
+    image: latex
+    ipc: host
+    network_mode: ${RUNTIME_NETWORK_MODE}
+    privileged: true
+    restart: always
+    runtime: ${RUNTIME}
     stdin_open: true
     tty: true
-    # ipc: host
-    # privileged: true
-    restart: always
+    user: ${DOCKER_UID}:${DOCKER_GID}
+    volumes:
+    - /tmp/.X11-unix:/tmp/.X11-unix:rw
+    - /run/user/${DOCKER_UID}/at-spi:/run/user/${DOCKER_UID}/at-spi:rw
+    - ~/Documents:${DOCKER_HOME}/Documents:rw
+    - ~/Pictures:${DOCKER_HOME}/Pictures:rw
+    - ~/Videos:${DOCKER_HOME}/Videos:rw
