@@ -12,10 +12,8 @@ Already tested on Ubuntu 20.04, 22.04, 24.04.
 
 ### 1. Setup
 
-Run the `setup.bash` with superuser privilege.
-
 ```bash
-sudo ./setup.bash
+./setup.bash -h
 ```
 
 ### 2. Build
@@ -35,5 +33,3 @@ docker compose up -d
 ```bash
 docker exec -it latex bash
 ```
-
-## 

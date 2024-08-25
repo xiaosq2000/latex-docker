@@ -87,17 +87,14 @@ RUN apt-get update && \
     # Clear
     && rm -rf /var/lib/apt/lists/*
 
-# zathura compiling dependencies
-ARG TO_BUILD_ZATHURA
-RUN if [[ ${TO_BUILD_ZATHURA} == "false" ]]; then \
-    apt-get update && \
-    apt-get install -qy --no-install-recommends \
-    zathura \
-    && rm -rf /var/lib/apt/lists/*; \
-    fi
-
 # TODO: Use ONBUILD instructions in Dockerfile to achieve conditonal building.
-# 
+
+# Download zathura via package manager
+RUN apt-get update && \
+    apt-get install -qy --no-install-recommends \
+    zathura zathura-dev \
+    && rm -rf /var/lib/apt/lists/*
+
 # WORKDIR ${XDG_PREFIX_DIR}
 #
 # RUN if [[ -n ${TO_BUILD_ZATHURA} ]]; then \
@@ -203,17 +200,18 @@ RUN LAZYGIT_VERSION=$(curl -s "https://api.github.com/repos/jesseduffield/lazygi
     install -Dm 755 lazygit ${XDG_PREFIX_HOME}/bin && \
     rm lazygit.tar.gz lazygit
 
-# Managers and plugins
 RUN \
     # Install starship, a cross-shell prompt tool
-    sudo apt-get update && sudo apt-get install -qy --no-install-recommends \
-    musl-tools \
-    && sudo rm -fr /var/lib/apt/lists/{apt,dpkg,cache,log} /tmp/* /var/tmp/* && \
+    mkdir -p ${XDG_PREFIX_HOME}/bin && \
     wget -qO- https://starship.rs/install.sh | sh -s -- --yes -b ${XDG_PREFIX_HOME}/bin && \
     # Install oh-my-zsh
     sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" && \
     # Install tpm
-    git clone --depth 1 https://github.com/tmux-plugins/tpm ${XDG_PREFIX_HOME}/share/tmux/plugins/tpm && \
+    if [ -n ${http_proxy} && -n ${https_proxy} ]; then \
+    git clone --config http.proxy=${http_proxy} --config https.proxy=${https_proxy} --depth 1 https://github.com/tmux-plugins/tpm ${XDG_PREFIX_HOME}/share/tmux/plugins/tpm; \
+    else \
+    git clone --depth 1 https://github.com/tmux-plugins/tpm ${XDG_PREFIX_HOME}/share/tmux/plugins/tpm; \
+    fi && \
     # Install nvm, without modification of shell profiles
     export NVM_DIR=~/.config/nvm && mkdir -p ${NVM_DIR} && \
     PROFILE=/dev/null bash -c 'wget -qO- "https://github.com/nvm-sh/nvm/raw/master/install.sh" | bash' && \
