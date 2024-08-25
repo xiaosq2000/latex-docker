@@ -39,11 +39,12 @@ debug() {
 
 build="false"
 build_with_proxy="false"
-download="false"
+run_with_proxy="false"
+run_with_nvidia="false"
+download_texlive="false"
 download_zathura_src="false"
 download_typefaces="false"
 extract_typefaces="false"
-run_with_nvidia="false"
 
 usage() {
 	printf "%s\n" \
@@ -59,6 +60,7 @@ usage() {
 		"${INDENT}-h, --help                       " \
 		"${INDENT}-b, --build                      " \
 		"${INDENT}-bp, --build_with_proxy          " \
+		"${INDENT}-rp, --run_with_proxy            " \
 		"${INDENT}-rn, --run_with_nvidia           " \
 		"${INDENT}-dt, --download_texlive          " \
 		"${INDENT}-dz, --download_zathura_src      " \
@@ -80,6 +82,10 @@ while [[ $# -gt 0 ]]; do
 		;;
 	-bp | --build_with_proxy)
 		build_with_proxy=true
+		shift
+		;;
+	-rp | --run_with_proxy)
+		run_with_proxy=true
 		shift
 		;;
 	-rn | --run_with_nvidia)
@@ -116,7 +122,8 @@ fi
 printf "%s\n" "${GREEN}Given Arguments${RESET}:" \
 	"${INDENT}build=${BOLD}$build${RESET}" \
 	"${INDENT}build_with_proxy=${BOLD}$build_with_proxy${RESET}" \
-	"${INDENT}download=${BOLD}$download_texlive${RESET}" \
+	"${INDENT}run_with_proxy=${BOLD}$run_with_proxy${RESET}" \
+	"${INDENT}download_texlive=${BOLD}$download_texlive${RESET}" \
 	"${INDENT}download_zathura_src=${BOLD}$download_zathura_src${RESET}" \
 	"${INDENT}download_typefaces=${BOLD}$download_typefaces${RESET}" \
 	"${INDENT}extract_typefaces=${BOLD}$extract_typefaces${RESET}" \
@@ -179,22 +186,33 @@ buildtime_proxy_env=$(
 
 	END
 )
-runtime_networking_env=$(
-	cat <<-END
+if [[ "$run_with_proxy" == "true" ]]; then
+	warning "Make sure you have configured the 'runtime_networking_env' in setup.bash."
+	runtime_networking_env=$(
+		cat <<-END
 
-		# RUNTIME_NETWORK_MODE=bridge
-		# http_proxy=http://host.docker.internal:1080
-		# https_proxy=http://host.docker.internal:1080
-		# HTTP_PROXY=http://host.docker.internal:1080
-		# HTTPS_PROXY=http://host.docker.internal:1080
-		RUNTIME_NETWORK_MODE=host
-		http_proxy=http://127.0.0.1:1080
-		https_proxy=http://127.0.0.1:1080
-		HTTP_PROXY=http://127.0.0.1:1080
-		HTTPS_PROXY=http://127.0.0.1:1080
+			RUNTIME_NETWORK_MODE=bridge
+			http_proxy=http://host.docker.internal:1080
+			https_proxy=http://host.docker.internal:1080
+			HTTP_PROXY=http://host.docker.internal:1080
+			HTTPS_PROXY=http://host.docker.internal:1080
+			# RUNTIME_NETWORK_MODE=host
+			# http_proxy=http://127.0.0.1:1080
+			# https_proxy=http://127.0.0.1:1080
+			# HTTP_PROXY=http://127.0.0.1:1080
+			# HTTPS_PROXY=http://127.0.0.1:1080
 
-	END
-)
+		END
+	)
+else
+	runtime_networking_env=$(
+		cat <<-END
+
+			RUNTIME_NETWORK_MODE=bridge
+
+		END
+	)
+fi
 user_env=$(
 	cat <<-END
 
@@ -245,7 +263,6 @@ else
 	warning "${BOLD}NOT${RESET} writing any build-time environment variables."
 fi
 
-warning "Suggest you checking out the runtime networking environment variables."
 echo "${runtime_networking_env}" >>${env_file}
 
 echo "${user_env}" >>${env_file}
@@ -255,19 +272,15 @@ if [[ "${run_with_nvidia}" == true ]]; then
 else
 	echo "${runtime_env}" >>${env_file}
 fi
+debug "Replace 'services.latex.deploy' in ${BOLD}docker-compose.yml${RESET}."
+python3 "$script_dir/setup.d/nvidia.py" "latex"
+
+debug "Replace 'services.latex.build.args' in ${BOLD}docker-compose.yml${RESET}."
+python3 "$script_dir/setup.d/build_args.py" "latex"
 
 # Reference: https://stackoverflow.com/a/30969768
 debug "Load varibles from ${env_file} for following usage in this script."
 set -o allexport && source ${env_file} && set +o allexport
-
-info "Replace building arguments in ${BOLD}docker-compose.yml${RESET}."
-set +e
-python3 "$script_dir/scripts/setup.py" "latex"
-if [[ $? -eq 1 ]]; then
-	error "Failed write to ${BOLD}docker-compose.yml${RESET}."
-	exit 1
-fi
-set -e
 
 # >>>>>>>>>>>>>>>>>>>>>>>>>> Environment Variables >>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
