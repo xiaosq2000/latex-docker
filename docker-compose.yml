@@ -24,6 +24,15 @@ services:
       dockerfile: Dockerfile
       network: ${BUILDTIME_NETWORK_MODE}
     container_name: latex
+    deploy:
+      resources:
+        reservations:
+          devices:
+          - capabilities:
+            - gpu
+            device_ids:
+            - '0'
+            driver: nvidia
     env_file: ./.env
     extra_hosts:
     - host.docker.internal:host-gateway

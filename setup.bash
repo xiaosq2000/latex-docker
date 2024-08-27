@@ -144,10 +144,7 @@ fi
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 # The default path of 'env_file' for Docker Compose
 env_file=${script_dir}/.env
-# Backup and clear the env_file
-# if [ -f ${env_file} ]; then
-# 	mv ${env_file} ${env_file}.bak
-# fi
+# Clear the file
 cat /dev/null >${env_file}
 
 # >>>>>>>>>>>>>>>>>>>>>>>>>> Environment Variables >>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -167,25 +164,37 @@ buildtime_env=$(
 		# ZATHURA_PDF_MUPDF_VERSION=0.4.4
 		NEOVIM_VERSION=0.10.1
 		TMUX_GIT_HASH=9ae69c3
-		# DOTFILES_GIT_HASH=9233a3e
 		SETUP_TIMESTAMP=$(date +%N)
 		# <<< as services.latex.build.args
 
 	END
 )
-buildtime_proxy_env=$(
-	cat <<-END
+if [[ "$build_with_proxy" == "true" ]]; then
+	warning "Make sure you have configured the 'buildtime_networking_env' in setup.bash."
+	buildtime_networking_env=$(
+		cat <<-END
 
-		# >>> as services.latex.build.args
-		BUILDTIME_NETWORK_MODE=host
-		buildtime_http_proxy=http://127.0.0.1:1080
-		buildtime_https_proxy=http://127.0.0.1:1080
-		BUILDTIME_HTTP_PROXY=http://127.0.0.1:1080
-		BUILDTIME_HTTPS_PROXY=http://127.0.0.1:1080
-		# <<< as services.latex.build.args
+			# >>> as services.latex.build.args
+			BUILDTIME_NETWORK_MODE=host
+			buildtime_http_proxy=http://127.0.0.1:1080
+			buildtime_https_proxy=http://127.0.0.1:1080
+			BUILDTIME_HTTP_PROXY=http://127.0.0.1:1080
+			BUILDTIME_HTTPS_PROXY=http://127.0.0.1:1080
+			# <<< as services.latex.build.args
 
-	END
-)
+		END
+	)
+else
+	buildtime_networking_env=$(
+		cat <<-END
+
+			# >>> as services.latex.build.args
+			BUILDTIME_NETWORK_MODE=host
+			# <<< as services.latex.build.args
+
+		END
+	)
+fi
 if [[ "$run_with_proxy" == "true" ]]; then
 	warning "Make sure you have configured the 'runtime_networking_env' in setup.bash."
 	runtime_networking_env=$(
@@ -225,59 +234,44 @@ user_env=$(
 
 	END
 )
-runtime_env=$(
-	cat <<-END
+if [[ "$run_with_nvidia" == "true" ]]; then
+	runtime_env=$(
+		cat <<-END
 
-		RUNTIME=runc
-		DISPLAY=${DISPLAY}
-		SDL_VIDEODRIVER=x11
+			RUNTIME=nvidia
+			NVIDIA_VISIBLE_DEVICES=all
+			NVIDIA_DRIVER_CAPABILITIES=all
+			DISPLAY=${DISPLAY}
+			SDL_VIDEODRIVER=x11
 
-	END
-)
-nvidia_runtime_env=$(
-	cat <<-END
+		END
+	)
+else
+	runtime_env=$(
+		cat <<-END
 
-		RUNTIME=nvidia
-		NVIDIA_VISIBLE_DEVICES=all
-		NVIDIA_DRIVER_CAPABILITIES=all
-		DISPLAY=${DISPLAY}
-		SDL_VIDEODRIVER=x11
+			RUNTIME=runc
+			DISPLAY=${DISPLAY}
+			SDL_VIDEODRIVER=x11
 
-	END
-)
-# <<<<<<<<<<<<<<<<<<<<<<<<<< Environment Variables <<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+		END
+	)
+fi
 
 info "Environment variables will be saved to ${BOLD}${env_file}${RESET}."
-
 echo "# ! The file is managed by 'setup.bash'." >>${env_file}
 echo "# ! Don't modify it manually. Change 'setup.bash' instead." >>${env_file}
 # Verify and save the categories of environment variables.
 if [[ "$build" == "true" ]]; then
 	echo "${buildtime_env}" >>${env_file}
-	if [[ "${build_with_proxy}" == "true" ]]; then
-		echo "${buildtime_proxy_env}" >>${env_file}
-	else
-		warning "${BOLD}NOT${RESET} using networking proxy at Docker building stage."
-	fi
-else
-	warning "${BOLD}NOT${RESET} writing any build-time environment variables."
+	echo "${buildtime_networking_env}" >>${env_file}
+	debug "Replace 'services.latex.build.args' in ${BOLD}docker-compose.yml${RESET}."
+	python3 "$script_dir/setup.d/build_args.py" "latex"
 fi
-
 echo "${runtime_networking_env}" >>${env_file}
-
 echo "${user_env}" >>${env_file}
-
-if [[ "${run_with_nvidia}" == true ]]; then
-	echo "${nvidia_runtime_env}" >>${env_file}
-else
-	echo "${runtime_env}" >>${env_file}
-fi
-debug "Replace 'services.latex.deploy' in ${BOLD}docker-compose.yml${RESET}."
+echo "${runtime_env}" >>${env_file}
 python3 "$script_dir/setup.d/nvidia.py" "latex"
-
-debug "Replace 'services.latex.build.args' in ${BOLD}docker-compose.yml${RESET}."
-python3 "$script_dir/setup.d/build_args.py" "latex"
-
 # Reference: https://stackoverflow.com/a/30969768
 debug "Load varibles from ${env_file} for following usage in this script."
 set -o allexport && source ${env_file} && set +o allexport
@@ -358,7 +352,7 @@ wget_paths=()
 _append_to_list() {
 	# $1: flag
 	if [ -z "$(eval echo "\$$1")" ]; then
-		error "Invalid flag."
+		warning "$1 is unset. Failed to append to the downloading list."
 		return 0
 	fi
 	# $2: url
