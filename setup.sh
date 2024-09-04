@@ -2,15 +2,9 @@
 
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Boilerplate >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
-# Be safe.
-set -eo pipefail
-# -e: This option causes the bash script to exit immediately if any command exits with a non-zero status code, unless the command is part of a conditional expression or is followed by a || operator.
-# -u: This option treats unset variables as an error and causes the script to exit if an unset variable is encountered.
-# -o pipefail: This option sets the exit status of a pipeline to the rightmost non-zero exit status of any command in the pipeline. It means that if any command in a pipeline fails, the entire pipeline is considered to have failed.
+set -euo pipefail
 
-# Logging
 INDENT='    '
-
 BOLD="$(tput bold 2>/dev/null || printf '')"
 GREY="$(tput setaf 0 2>/dev/null || printf '')"
 UNDERLINE="$(tput smul 2>/dev/null || printf '')"
@@ -20,18 +14,17 @@ YELLOW="$(tput setaf 3 2>/dev/null || printf '')"
 BLUE="$(tput setaf 4 2>/dev/null || printf '')"
 MAGENTA="$(tput setaf 5 2>/dev/null || printf '')"
 RESET="$(tput sgr0 2>/dev/null || printf '')"
-
 error() {
-	printf '%s\n' "${RED}${BOLD}ERROR:${RESET} $*" >&2
+	printf '%s\n' "${BOLD}${RED}ERROR:${RESET} $*" >&2
 }
 warning() {
-	printf '%s\n' "${RED}${YELLOW}WARNING:${RESET} $*"
+	printf '%s\n' "${BOLD}${YELLOW}WARNING:${RESET} $*"
 }
 info() {
-	printf '%s\n' "${RED}${GREEN}INFO:${RESET} $*"
+	printf '%s\n' "${BOLD}${GREEN}INFO:${RESET} $*"
 }
 debug() {
-	printf '%s\n' "${GREY}${GRAY}DEBUG:${RESET} $*"
+	printf '%s\n' "${BOLD}${GREY}DEBUG:${RESET} $*"
 }
 
 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< Boilerplate <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
@@ -142,8 +135,10 @@ fi
 
 # The parent folder of this script.
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
+
 # The default path of 'env_file' for Docker Compose
 env_file=${script_dir}/.env
+
 # Clear the file
 cat /dev/null >${env_file}
 
