@@ -1,16 +1,15 @@
 # syntax=docker/dockerfile:1
 ARG BASE_IMAGE
 FROM ${BASE_IMAGE} as base
-SHELL ["/bin/bash", "-ic"]
+# reference: https://askubuntu.com/a/1515958
+RUN if [ $(cat /etc/os-release | grep '^NAME' | cut -d '=' -f 2) = '"Ubuntu"' ] && [ $(cat /etc/os-release | grep '^VERSION_ID' | cut -d '=' -f 2) = '"24.04"' ]; then touch /var/mail/ubuntu && chown ubuntu /var/mail/ubuntu && userdel -r ubuntu; fi
 # Networking proxies
-ARG http_proxy 
-ARG HTTP_PROXY 
-ARG https_proxy
-ARG HTTPS_PROXY
-ENV http_proxy ${http_proxy}
-ENV HTTP_PROXY ${http_proxy}
-ENV https_proxy ${http_proxy}
-ENV HTTPS_PROXY ${http_proxy}
+ARG buildtime_http_proxy 
+ARG buildtime_https_proxy 
+ENV http_proxy ${buildtime_http_proxy}
+ENV HTTP_PROXY ${buildtime_http_proxy}
+ENV https_proxy ${buildtime_https_proxy}
+ENV HTTPS_PROXY ${buildtime_https_proxy}
 # Avoid getting stuck with interactive interfaces when using apt-get
 ENV DEBIAN_FRONTEND noninteractive
 # Set the basic locale environment variables.
@@ -167,16 +166,11 @@ RUN sudo apt-get update && sudo apt-get install -qy --no-install-recommends \
     ripgrep fd-find \
     && sudo rm -rf /var/lib/apt/lists/*
 
-# Set up ssh server
-RUN sudo mkdir -p /var/run/sshd && \
-    sudo sed -i "s/^.*X11UseLocalhost.*$/X11UseLocalhost no/" /etc/ssh/sshd_config && \
-    sudo sed -i "s/^.*PermitUserEnvironment.*$/PermitUserEnvironment yes/" /etc/ssh/sshd_config
-
 # Neovim
 ARG NEOVIM_VERSION
 RUN wget "https://github.com/neovim/neovim/releases/download/v${NEOVIM_VERSION}/nvim-linux64.tar.gz" -O nvim-linux64.tar.gz && \
     tar -xf nvim-linux64.tar.gz && \
-    export SOURCE_DIR=${PWD}/nvim-linux64 && export DEST_DIR=${HOME}/.local && \
+    export SOURCE_DIR=${PWD}/nvim-linux64 && export DEST_DIR=${XDG_PREFIX_HOME} && \
     (cd ${SOURCE_DIR} && find . -type f -exec install -Dm 755 "{}" "${DEST_DIR}/{}" \;) && \
     rm -r nvim-linux64.tar.gz nvim-linux64
 
@@ -188,21 +182,20 @@ RUN sudo apt-get update && sudo apt-get install -qy --no-install-recommends \
     git clone "https://github.com/tmux/tmux" && cd tmux && \
     git checkout ${TMUX_GIT_HASH} && \
     sh autogen.sh && \
-    ./configure --prefix=${DOCKER_HOME}/.local && \
+    ./configure --prefix=${XDG_PREFIX_HOME} && \
     make -j ${COMPILE_JOBS} && \
     make install && \
     rm -rf ../tmux
 
-# Lazygit (newest version)
-RUN LAZYGIT_VERSION=$(curl -s "https://api.github.com/repos/jesseduffield/lazygit/releases/latest" | grep -Po '"tag_name": "v\K[^"]*') && \
+RUN \
+    # Install lazygit (the newest version)
+    LAZYGIT_VERSION=$(curl -s "https://api.github.com/repos/jesseduffield/lazygit/releases/latest" | grep -Po '"tag_name": "v\K[^"]*') && \
     curl -Lo lazygit.tar.gz "https://github.com/jesseduffield/lazygit/releases/latest/download/lazygit_${LAZYGIT_VERSION}_Linux_x86_64.tar.gz" && \
     tar xf lazygit.tar.gz lazygit && \
     install -Dm 755 lazygit ${XDG_PREFIX_HOME}/bin && \
-    rm lazygit.tar.gz lazygit
-
-RUN \
-    # Install starship, a cross-shell prompt tool
+    rm lazygit.tar.gz lazygit && \
     mkdir -p ${XDG_PREFIX_HOME}/bin && \
+    # Install starship, a cross-shell prompt tool
     wget -qO- https://starship.rs/install.sh | sh -s -- --yes -b ${XDG_PREFIX_HOME}/bin && \
     # Install oh-my-zsh
     sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" && \
@@ -218,28 +211,39 @@ RUN \
     # Load nvm and install the latest lts nodejs
     . "${NVM_DIR}/nvm.sh" && nvm install --lts node
 
-# Micromamba (For Linux Intel (x86_64))
+# Install mamba and conda
 RUN cd ${XDG_PREFIX_HOME} && \
-    curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest | tar -xvj bin/micromamba
+    curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest | tar -xvj bin/micromamba && \
+    bin/micromamba config append channels conda-forge && \
+    bin/micromamba config set channel_priority strict && \
+    wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh && \
+    bash Miniconda3-latest-Linux-x86_64.sh -b -p ${XDG_PREFIX_HOME}/miniconda3 && \
+    rm Miniconda3-latest-Linux-x86_64.sh && \
+    miniconda3/bin/conda config --set auto_activate_base false
+
+# Set up ssh server
+RUN sudo mkdir -p /var/run/sshd && \
+    sudo sed -i "s/^.*X11UseLocalhost.*$/X11UseLocalhost no/" /etc/ssh/sshd_config && \
+    sudo sed -i "s/^.*PermitUserEnvironment.*$/PermitUserEnvironment yes/" /etc/ssh/sshd_config
 
 # A trick to get rid of using Docker building cache from now on.
 ARG SETUP_TIMESTAMP
-
 # Dotfiles
 RUN cd ~ && \
     git init && \
-    git branch -M main && \
     git remote add origin https://github.com/xiaosq2000/dotfiles && \
     git fetch --all && \
-    git reset --hard origin/main
+    git reset --hard origin/main && \
+    git branch -M main
 
 # Typefaces
 RUN mkdir -p ${XDG_DATA_HOME}/fonts
 COPY ./downloads/typefaces/ ${XDG_DATA_HOME}/fonts
 RUN fc-cache -f
 
-SHELL ["/usr/bin/zsh", "-ic"]
 ENV TERM=xterm-256color
+SHELL ["/usr/bin/zsh", "-ic"]
+# RUN sudo chsh -s /usr/bin/zsh
 
 # Clear environment variables exclusively for building to prevent pollution.
 ENV DEBIAN_FRONTEND=newt

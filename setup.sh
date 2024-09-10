@@ -3,7 +3,6 @@
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Boilerplate >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
 set -euo pipefail
-
 INDENT='    '
 BOLD="$(tput bold 2>/dev/null || printf '')"
 GREY="$(tput setaf 0 2>/dev/null || printf '')"
@@ -26,7 +25,9 @@ info() {
 debug() {
 	printf '%s\n' "${BOLD}${GREY}DEBUG:${RESET} $*"
 }
-
+completed() {
+	printf '%s\n' "${BOLD}${GREEN}✓${RESET} $*"
+}
 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< Boilerplate <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Arguments >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
@@ -148,7 +149,7 @@ buildtime_env=$(
 
 		# >>> as services.latex.build.args
 		DOCKER_BUILDKIT=1
-		BASE_IMAGE=ubuntu:22.04
+		BASE_IMAGE=ubuntu:24.04
 		XDG_PREFIX_DIR=/usr/local
 		TEXLIVE_VERSION=2024
 		TEXLIVE_SCHEME=full
@@ -165,7 +166,7 @@ buildtime_env=$(
 	END
 )
 if [[ "$build_with_proxy" == "true" ]]; then
-	warning "Make sure you have configured the 'buildtime_networking_env' in setup.bash."
+	warning "Make sure you have configured the 'buildtime_networking_env' in setup.sh."
 	buildtime_networking_env=$(
 		cat <<-END
 
@@ -191,7 +192,7 @@ else
 	)
 fi
 if [[ "$run_with_proxy" == "true" ]]; then
-	warning "Make sure you have configured the 'runtime_networking_env' in setup.bash."
+	warning "Make sure you have configured the 'runtime_networking_env' in setup.sh."
 	runtime_networking_env=$(
 		cat <<-END
 
@@ -254,8 +255,8 @@ else
 fi
 
 info "Environment variables will be saved to ${BOLD}${env_file}${RESET}."
-echo "# ! The file is managed by 'setup.bash'." >>${env_file}
-echo "# ! Don't modify it manually. Change 'setup.bash' instead." >>${env_file}
+echo "# ! The file is managed by 'setup.sh'." >>${env_file}
+echo "# ! Don't modify it manually. Change 'setup.sh' instead." >>${env_file}
 # Verify and save the categories of environment variables.
 if [[ "$build" == "true" ]]; then
 	echo "${buildtime_env}" >>${env_file}
@@ -330,8 +331,8 @@ _download_texlive() {
 			tlpdbopt_w32_multi_user 1
 		END
 	)
-	echo "# ! The file is managed by 'setup.bash'." >"${downloads_dir}/texlive.profile"
-	echo "# ! Don't modify it manually. Change 'setup.bash' instead." >>"${downloads_dir}/texlive.profile"
+	echo "# ! The file is managed by 'setup.sh'." >"${downloads_dir}/texlive.profile"
+	echo "# ! Don't modify it manually. Change 'setup.sh' instead." >>"${downloads_dir}/texlive.profile"
 	echo "${install_profile}" >>"${downloads_dir}/texlive.profile"
 	info "TeXLive installation profile is generated to ${BOLD}${downloads_dir}/texlive.profile${RESET}."
 }
@@ -383,8 +384,10 @@ _download_everything() {
 }
 
 if [[ "$download_zathura_src" == "true" ]]; then
-	# PDF viewer related staff
-	warning "Make sure you have set the environment variables related to zathura versions."
+	warning "Make sure:
+    1. 'setup.sh': set the environment variables related to zathura versions.
+    2. 'Dockerfile': uncomment the related lines.
+    "
 	_append_to_list GIRARA_VERSION "https://pwmt.org/projects/girara/download/girara-${GIRARA_VERSION}.tar.xz" ""
 	_append_to_list ZATHURA_VERSION "https://pwmt.org/projects/zathura/download/zathura-${ZATHURA_VERSION}.tar.xz" ""
 	_append_to_list MUPDF_VERSION "https://mupdf.com/downloads/archive/mupdf-${MUPDF_VERSION}-source.tar.gz" ""
@@ -440,4 +443,4 @@ if [ "$extract_typefaces" = "true" ]; then
 fi
 # <<<<<<<<<<<<<<<<<<<<<<<<< Download and Extraction <<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
-info "Done!"
+completed "Done!"
