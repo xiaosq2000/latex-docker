@@ -23,7 +23,11 @@ info() {
 	printf '%s\n' "${BOLD}${GREEN}INFO:${RESET} $*"
 }
 debug() {
-	printf '%s\n' "${BOLD}${GREY}DEBUG:${RESET} $*"
+	set +u
+	if [[ "$DEBUG" == "true" ]]; then
+		set -u
+		printf '%s\n' "${BOLD}${GREY}DEBUG:${RESET} $*"
+	fi
 }
 completed() {
 	printf '%s\n' "${BOLD}${GREEN}✓${RESET} $*"
@@ -31,75 +35,99 @@ completed() {
 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< Boilerplate <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Arguments >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
-build="false"
-build_with_proxy="false"
-run_with_proxy="false"
-run_with_nvidia="false"
-download_texlive="false"
-download_zathura_src="false"
-download_typefaces="false"
-extract_typefaces="false"
+BUILD="false"
+BUILD_PROXY="false"
+RUN_PROXY="false"
+NVIDIA="false"
+WAYLAND="false"
+DOWNLOAD_TEXLIVE="false"
+DOWNLOAD_ZATHURA_SRC="false"
+DOWNLOAD_TYPEFACES="false"
+EXTRACT_TYPEFACES="false"
 
 usage() {
 	printf "%s\n" \
 		"Usage: " \
 		"${INDENT}$0 [option]" \
 		"" \
-		"${INDENT}Download a lot of stuff and generate environment variables to '.env' for both build-time and run-time Docker usage." \
-		"${INDENT}${RED}Before running, You are suggested checking out the environment variables written in $0.${RESET}" \
+		"${INDENT}Download specified build-time dependencies." \
+		"${INDENT}Generate 'docker-compose.yml' and '.env' for Docker build-time and run-time usage." \
+		"" \
+		"${INDENT}${BOLD}Before running, You could check out the environment variables written in $0.${RESET}" \
+		"" \
+		"${INDENT}Recommended command for the first time," \
+		"" \
+		"${INDENT}${INDENT}\$ sudo $0 -b -dt -dtf -et" \
 		""
 
 	printf "%s\n" \
 		"Options: " \
-		"${INDENT}-h, --help                       " \
-		"${INDENT}-b, --build                      " \
-		"${INDENT}-bp, --build_with_proxy          " \
-		"${INDENT}-rp, --run_with_proxy            " \
-		"${INDENT}-rn, --run_with_nvidia           " \
-		"${INDENT}-dt, --download_texlive          " \
-		"${INDENT}-dz, --download_zathura_src      " \
-		"${INDENT}-dtf, --download_typefaces       " \
-		"${INDENT}-et, --extract_typefaces         " \
+		"${INDENT}-b, --build                    Generate build-time environment variables for 'docker-compose.yml'." \
+		"${INDENT}                               If not given, only run-time environment variables will be generated." \
+		"" \
+		"${INDENT}-bp, --build-proxy             Use networking proxy for docker image build-time." \
+		"${INDENT}-rp, --run-proxy               Use networking proxy for docker container run-time." \
+		"" \
+		"${INDENT}-n, --nvidia                   Configure NVIDIA container runtime. Make sure the nvidia container toolkit is installed and configured." \
+		"${INDENT}                               Reference: https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html" \
+		"" \
+		"${INDENT}-w, --wayland                  Configure (X)WAYLAND run-time environment variables." \
+		"${INDENT}                               If not given, X11 run-time environment variables will be configured." \
+		"" \
+		"${INDENT}-dt, --download-texlive        " \
+		"${INDENT}-dz, --download-zathura-src    " \
+		"${INDENT}-dtf, --download-typefaces     " \
+		"${INDENT}-et, --extract-typefaces       " \
+		"" \
+		"${INDENT}-h, --help                     Display help messages." \
+		"${INDENT}--debug                        Display verbose logging for debugging." \
 		""
 }
 
-# Parse command line arguments
 while [[ $# -gt 0 ]]; do
 	case "$1" in
 	-h | --help)
 		usage
 		exit 0
 		;;
+	--debug)
+		DEBUG=true
+        shift
+		;;
 	-b | --build)
-		build=true
+		BUILD=true
 		shift
 		;;
-	-bp | --build_with_proxy)
-		build_with_proxy=true
+	-bp | --build-proxy)
+		BUILD_PROXY=true
 		shift
 		;;
-	-rp | --run_with_proxy)
-		run_with_proxy=true
+	-rp | --run-proxy)
+		RUN_PROXY=true
 		shift
 		;;
-	-rn | --run_with_nvidia)
-		run_with_nvidia=true
+	-n | --nvidia)
+		NVIDIA=true
 		shift
 		;;
-	-dt | --download_texlive)
-		download_texlive=true
+	-w | --wayland)
+		WAYLAND=true
 		shift
 		;;
-	-dz | --download_zathura_src)
-		download_zathura_src=true
+	-dt | --download-texlive)
+		DOWNLOAD_TEXLIVE=true
 		shift
 		;;
-	-dtf | --download_typefaces)
-		download_typefaces=true
+	-dz | --download-zathura-src)
+		DOWNLOAD_ZATHURA_SRC=true
 		shift
 		;;
-	-et | --extract_typefaces)
-		extract_typefaces=true
+	-dtf | --download-typefaces)
+		DOWNLOAD_TYPEFACES=true
+		shift
+		;;
+	-et | --extract-typefaces)
+		EXTRACT_TYPEFACES=true
 		shift
 		;;
 	*)
@@ -109,45 +137,43 @@ while [[ $# -gt 0 ]]; do
 	esac
 done
 
-if [[ $# == 0 ]]; then
-	usage
-fi
-
-printf "%s\n" "${GREEN}Given Arguments${RESET}:" \
-	"${INDENT}build=${BOLD}$build${RESET}" \
-	"${INDENT}build_with_proxy=${BOLD}$build_with_proxy${RESET}" \
-	"${INDENT}run_with_proxy=${BOLD}$run_with_proxy${RESET}" \
-	"${INDENT}download_texlive=${BOLD}$download_texlive${RESET}" \
-	"${INDENT}download_zathura_src=${BOLD}$download_zathura_src${RESET}" \
-	"${INDENT}download_typefaces=${BOLD}$download_typefaces${RESET}" \
-	"${INDENT}extract_typefaces=${BOLD}$extract_typefaces${RESET}" \
-	"${INDENT}run_with_nvidia=${BOLD}$run_with_nvidia${RESET}" \
-	""
-
 # TODO: autocompletion of arguments
 
 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< Arguments <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-
-# Check permission. Superuser privilege is used to mount the iso.
-if [[ $(id -u) -ne 0 ]]; then
-	error "The script needs root privilege to run. Try again with sudo."
-	exit 1
-fi
 
 # The parent folder of this script.
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 
 # The default path of 'env_file' for Docker Compose
-env_file=${script_dir}/.env
+env_file="${script_dir}/.env"
 
-# Clear the file
-cat /dev/null >${env_file}
+if [[ -f "$env_file" ]]; then
+    rm $env_file
+fi
+touch $env_file
+if [[ $(id -u) -eq 0 ]]; then
+    chown ${SUDO_USER}:${SUDO_USER} $env_file
+fi
+
 
 # >>>>>>>>>>>>>>>>>>>>>>>>>> Environment Variables >>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-buildtime_env=$(
+ 
+SERVICE_NAME="latex"
+python3 "$script_dir/setup.d/deploy.py" --service-name "${SERVICE_NAME}" --clear
+
+compose_env=$(
 	cat <<-END
 
-		# >>> as services.latex.build.args
+		IMAGE_NAME=latex
+		IMAGE_TAG=latest
+		CONTAINER_NAME=latex
+
+	END
+)
+build_env=$(
+	cat <<-END
+
+		# >>> as services.${SERVICE_NAME}.build.args
 		DOCKER_BUILDKIT=1
 		BASE_IMAGE=ubuntu:24.04
 		XDG_PREFIX_DIR=/usr/local
@@ -161,39 +187,39 @@ buildtime_env=$(
 		NEOVIM_VERSION=0.10.1
 		TMUX_GIT_HASH=9ae69c3
 		SETUP_TIMESTAMP=$(date +%N)
-		# <<< as services.latex.build.args
+		# <<< as services.${SERVICE_NAME}.build.args
 
 	END
 )
-if [[ "$build_with_proxy" == "true" ]]; then
+if [[ "$BUILD_PROXY" == "true" ]]; then
 	warning "Make sure you have configured the 'buildtime_networking_env' in setup.sh."
-	buildtime_networking_env=$(
+	build_networking_env=$(
 		cat <<-END
 
-			# >>> as services.latex.build.args
+			# >>> as services.${SERVICE_NAME}.build.args
 			BUILDTIME_NETWORK_MODE=host
 			buildtime_http_proxy=http://127.0.0.1:1080
 			buildtime_https_proxy=http://127.0.0.1:1080
 			BUILDTIME_HTTP_PROXY=http://127.0.0.1:1080
 			BUILDTIME_HTTPS_PROXY=http://127.0.0.1:1080
-			# <<< as services.latex.build.args
+			# <<< as services.${SERVICE_NAME}.build.args
 
 		END
 	)
 else
-	buildtime_networking_env=$(
+	build_networking_env=$(
 		cat <<-END
 
-			# >>> as services.latex.build.args
+			# >>> as services.${SERVICE_NAME}.build.args
 			BUILDTIME_NETWORK_MODE=host
-			# <<< as services.latex.build.args
+			# <<< as services.${SERVICE_NAME}.build.args
 
 		END
 	)
 fi
-if [[ "$run_with_proxy" == "true" ]]; then
+if [[ "$RUN_PROXY" == "true" ]]; then
 	warning "Make sure you have configured the 'runtime_networking_env' in setup.sh."
-	runtime_networking_env=$(
+	run_networking_env=$(
 		cat <<-END
 
 			RUNTIME_NETWORK_MODE=bridge
@@ -210,7 +236,7 @@ if [[ "$run_with_proxy" == "true" ]]; then
 		END
 	)
 else
-	runtime_networking_env=$(
+	run_networking_env=$(
 		cat <<-END
 
 			RUNTIME_NETWORK_MODE=bridge
@@ -218,35 +244,68 @@ else
 		END
 	)
 fi
-user_env=$(
-	cat <<-END
+if [[ $(id -u) -ne 0 ]]; then
+    run_and_build_user_env=$(
+        cat <<-END
 
-		# >>> as services.latex.build.args
-		DOCKER_USER=latex
-		DOCKER_HOME=/home/latex
-		DOCKER_UID=${SUDO_UID}
-		DOCKER_GID=${SUDO_GID}
-		# <<< as services.latex.build.args
+			# >>> as services.${SERVICE_NAME}.build.args
+			DOCKER_USER=latex
+			DOCKER_HOME=/home/latex
+			DOCKER_UID=$(id -u)
+			DOCKER_GID=$(id -g)
+			# <<< as services.${SERVICE_NAME}.build.args
 
-	END
-)
-if [[ "$run_with_nvidia" == "true" ]]; then
-	runtime_env=$(
+		END
+    )
+else
+    run_and_build_user_env=$(
+        cat <<-END
+
+			# >>> as services.${SERVICE_NAME}.build.args
+			DOCKER_USER=latex
+			DOCKER_HOME=/home/latex
+			DOCKER_UID=${SUDO_UID}
+			DOCKER_GID=${SUDO_GID}
+			# <<< as services.${SERVICE_NAME}.build.args
+
+		END
+    )
+fi
+if [[ "$NVIDIA" == "true" ]]; then
+	container_runtime_env=$(
 		cat <<-END
 
 			RUNTIME=nvidia
 			NVIDIA_VISIBLE_DEVICES=all
 			NVIDIA_DRIVER_CAPABILITIES=all
+
+		END
+	)
+	python3 "$script_dir/setup.d/deploy.py" --service-name "${SERVICE_NAME}" --nvidia
+else
+	container_runtime_env=$(
+		cat <<-END
+
+			RUNTIME=runc
+
+		END
+	)
+fi
+if [[ "${WAYLAND}" == true ]]; then
+	display_runtime_env=$(
+		cat <<-END
+
 			DISPLAY=${DISPLAY}
-			SDL_VIDEODRIVER=x11
+			WAYLAND_DISPLAY=${WAYLAND_DISPLAY}
+			SDL_VIDEODRIVER=wayland
+			QT_QPA_PLATFORM=wayland
 
 		END
 	)
 else
-	runtime_env=$(
+	display_runtime_env=$(
 		cat <<-END
 
-			RUNTIME=runc
 			DISPLAY=${DISPLAY}
 			SDL_VIDEODRIVER=x11
 
@@ -254,22 +313,27 @@ else
 	)
 fi
 
-info "Environment variables will be saved to ${BOLD}${env_file}${RESET}."
-echo "# ! The file is managed by 'setup.sh'." >>${env_file}
-echo "# ! Don't modify it manually. Change 'setup.sh' instead." >>${env_file}
-# Verify and save the categories of environment variables.
-if [[ "$build" == "true" ]]; then
-	echo "${buildtime_env}" >>${env_file}
-	echo "${buildtime_networking_env}" >>${env_file}
-	debug "Replace 'services.latex.build.args' in ${BOLD}docker-compose.yml${RESET}."
-	python3 "$script_dir/setup.d/build_args.py" "latex"
+echo "# ! The file is managed by '$(basename "$0")'." >>${env_file}
+echo "# ! Don't edit '${env_file}' manually. Change '$(basename "$0")' instead." >>${env_file}
+echo "${compose_env}" >>${env_file}
+echo "${run_and_build_user_env}" >>${env_file}
+if [[ "${BUILD}" = true ]]; then
+    # Check permission. Superuser privilege is used to mount the iso.
+    if [[ $(id -u) -ne 0 ]]; then
+        error "The script needs root privilege to run. Try again with sudo."
+        exit 1
+    fi
+	echo "${build_env}" >>${env_file}
+	echo "${build_networking_env}" >>${env_file}
+	python3 "$script_dir/setup.d/build_args.py" "${SERVICE_NAME}"
 fi
-echo "${runtime_networking_env}" >>${env_file}
-echo "${user_env}" >>${env_file}
-echo "${runtime_env}" >>${env_file}
-python3 "$script_dir/setup.d/nvidia.py" "latex"
+echo "${run_networking_env}" >>${env_file}
+echo "${container_runtime_env}" >>${env_file}
+echo "${display_runtime_env}" >>${env_file}
+debug "Environment variables are saved to ${env_file}"
+
+# Load varibles from a file
 # Reference: https://stackoverflow.com/a/30969768
-debug "Load varibles from ${env_file} for following usage in this script."
 set -o allexport && source ${env_file} && set +o allexport
 
 # >>>>>>>>>>>>>>>>>>>>>>>>>> Environment Variables >>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -336,7 +400,7 @@ _download_texlive() {
 	echo "${install_profile}" >>"${downloads_dir}/texlive.profile"
 	info "TeXLive installation profile is generated to ${BOLD}${downloads_dir}/texlive.profile${RESET}."
 }
-if [[ "$download_texlive" == "true" ]]; then
+if [[ "$DOWNLOAD_TEXLIVE" == "true" ]]; then
 	_download_texlive
 fi
 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<< Download TeXLive <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
@@ -372,7 +436,7 @@ _wget_all() {
 _download_everything() {
 	# a wrapper of the function "wget_all"
 	if [ ${#wget_urls[@]} = 0 ]; then
-		info "No download tasks."
+		debug "No download tasks."
 	else
 		info "${#wget_urls[@]} files to download:"
 		(
@@ -383,7 +447,7 @@ _download_everything() {
 	fi
 }
 
-if [[ "$download_zathura_src" == "true" ]]; then
+if [[ "$DOWNLOAD_ZATHURA_SRC" == "true" ]]; then
 	warning "Make sure:
     1. 'setup.sh': set the environment variables related to zathura versions.
     2. 'Dockerfile': uncomment the related lines.
@@ -394,7 +458,7 @@ if [[ "$download_zathura_src" == "true" ]]; then
 	_append_to_list ZATHURA_PDF_MUPDF_VERSION "https://pwmt.org/projects/zathura-pdf-mupdf/download/zathura-pdf-mupdf-${ZATHURA_PDF_MUPDF_VERSION}.tar.xz" ""
 fi
 
-if [[ "$download_typefaces" == "true" ]]; then
+if [[ "$DOWNLOAD_TYPEFACES" == "true" ]]; then
 	mkdir -p ${downloads_dir}/typefaces
 	mkdir -p ${downloads_dir}/typefaces/SourceHanSerifSC
 	_append_to_list 1 "https://github.com/adobe-fonts/source-han-serif/releases/download/2.002R/09_SourceHanSerifSC.zip" "typefaces/SourceHanSerifSC/SourceHanSerifSC.zip"
@@ -434,7 +498,7 @@ fi
 
 _download_everything
 
-if [ "$extract_typefaces" = "true" ]; then
+if [ "$EXTRACT_TYPEFACES" = "true" ]; then
 	info "Extracting all the typefaces."
 	# Reference: https://stackoverflow.com/a/2318189
 	cd ${downloads_dir}/typefaces/
