@@ -4,50 +4,64 @@ services:
       args:
         BASE_IMAGE: ${BASE_IMAGE}
         BUILDTIME_NETWORK_MODE: ${BUILDTIME_NETWORK_MODE}
+        COMPILE_JOBS: ${COMPILE_JOBS}
         DOCKER_BUILDKIT: ${DOCKER_BUILDKIT}
         DOCKER_GID: ${DOCKER_GID}
         DOCKER_HOME: ${DOCKER_HOME}
         DOCKER_UID: ${DOCKER_UID}
         DOCKER_USER: ${DOCKER_USER}
         NEOVIM_VERSION: ${NEOVIM_VERSION}
-        SETUP_TIMESTAMP: ${SETUP_TIMESTAMP}
+        SETUP_FLAG: ${SETUP_FLAG}
+        SSH_PORT: ${SSH_PORT}
         TEXLIVE_SCHEME: ${TEXLIVE_SCHEME}
         TEXLIVE_VERSION: ${TEXLIVE_VERSION}
-        TMUX_GIT_HASH: ${TMUX_GIT_HASH}
-        TO_BUILD_ZATHURA: ${TO_BUILD_ZATHURA}
-        XDG_PREFIX_DIR: ${XDG_PREFIX_DIR}
+        TMUX_GIT_REFERENCE: ${TMUX_GIT_REFERENCE}
+        ZSH_VERSION: ${ZSH_VERSION}
       context: .
       dockerfile: Dockerfile
       network: ${BUILDTIME_NETWORK_MODE}
-    command: zsh -i
-    container_name: ${CONTAINER_NAME}
+    command:
+    - zsh
+    - -i
+    container_name: latex
     deploy:
       resources:
+        limits:
+          cpus: 14.0
+          memory: 15.49G
         reservations:
+          cpus: 7.0
           devices:
           - capabilities:
             - gpu
             count: all
             driver: nvidia
+          memory: 7.74G
+    entrypoint:
+    - zsh
+    - -i
+    - /entrypoint.sh
     env_file: ./.env
     extra_hosts:
     - host.docker.internal:host-gateway
-    image: ${IMAGE_NAME}:${IMAGE_TAG}
+    image: latex:latest
     ipc: host
     network_mode: ${RUNTIME_NETWORK_MODE}
     privileged: true
     restart: always
-    runtime: ${RUNTIME}
+    runtime: nvidia
     stdin_open: true
     tty: true
     user: ${DOCKER_UID}:${DOCKER_GID}
     volumes:
-    - /tmp/.X11-unix:/tmp/.X11-unix:rw
-    - /var/run/dbus:/var/run/dbus:rw
-    - /run/user/${DOCKER_UID}:/run/user/${DOCKER_UID}:rw
-    - ~/.ssh:${DOCKER_HOME}/.ssh:rw
-    - ${XDG_CONFIG_HOME}/msmtp:${DOCKER_HOME}/.config/msmtp:rw
-    - ~/Documents:${DOCKER_HOME}/Documents:rw
     - ~/Projects:${DOCKER_HOME}/Projects:rw
+    - ~/Documents:${DOCKER_HOME}/Documents:rw
+    - ~/Datasets:${DOCKER_HOME}/Datasets:rw
     - ~/Pictures:${DOCKER_HOME}/Pictures:rw
     - ~/Videos:${DOCKER_HOME}/Videos:rw
+    - ~/.ssh:${DOCKER_HOME}/.ssh:ro
+    - ~/.config/msmtp:${DOCKER_HOME}/.config/msmtp:ro
+    - $XDG_RUNTIME_DIR/$WAYLAND_DISPLAY:/tmp/$WAYLAND_DISPLAY:rw
+    - /tmp/.X11-unix:/tmp/.X11-unix:rw
+    - /run/user/1000/bus:/run/user/1000/bus:rw
+    - ./entrypoint.sh:/entrypoint.sh:ro
