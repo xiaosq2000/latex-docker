@@ -225,6 +225,7 @@ if [[ ${DOWNLOAD_TYPEFACES} == "true" ]]; then
 	_append_to_list 1 "https://github.com/ryanoasis/nerd-fonts/releases/download/v3.0.2/SourceCodePro.zip" "${TYPEFACES_DIR}/NerdFontsSourceCodePro/NerdFontsSourceCodePro.zip"
 	_append_to_list 1 "https://github.com/mozilla/Fira/archive/refs/tags/4.106.tar.gz" "${TYPEFACES_DIR}/FiraSans/FiraSans.tar.gz"
 	_append_to_list 1 "https://github.com/tonsky/FiraCode/releases/download/6.2/Fira_Code_v6.2.zip" "${TYPEFACES_DIR}/FiraCode/FiraCode.zip"
+	_append_to_list 1 "https://github.com/ryanoasis/nerd-fonts/releases/download/v3.2.1/FiraCode.zip" "${TYPEFACES_DIR}/NerdFontsFiraCode/NerdFontsSourceCodePro.zip"
 	_append_to_list 1 "https://www.gust.org.pl/projects/e-foundry/tex-gyre/adventor/qag2_501otf.zip" "${TYPEFACES_DIR}/TexGyreAdventor/TexGyreAdventor.zip"
 	_append_to_list 1 "https://www.gust.org.pl/projects/e-foundry/tex-gyre/bonum/qbk2.004otf.zip" "${TYPEFACES_DIR}/TexGyreBonum/TexGyreBonum.zip"
 	_append_to_list 1 "https://www.gust.org.pl/projects/e-foundry/tex-gyre/chorus/qzc2.003otf.zip" "${TYPEFACES_DIR}/TexGyreChorus/TexGyreChorus.zip"

@@ -115,6 +115,9 @@ RUN sudo apt-get update && sudo apt-get install -qy --no-install-recommends \
 # Neovim
 ARG NEOVIM_VERSION
 RUN if [ ! -z "${NEOVIM_VERSION}" ]; then \
+    sudo apt-get update && sudo apt-get install -qy --no-install-recommends \
+    fd-find ripgrep && \
+    sudo rm -rf /var/lib/apt/lists/* && \
     wget "https://github.com/neovim/neovim/releases/download/v${NEOVIM_VERSION}/nvim-linux64.tar.gz" -O nvim-linux64.tar.gz && \
     tar -xf nvim-linux64.tar.gz && \
     export SRC_DIR="${PWD}/nvim-linux64" && export DEST_DIR="${XDG_PREFIX_HOME}" && \
