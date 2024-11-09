@@ -551,6 +551,7 @@ def generate_x11_configuration(
     service_name,
     x11,
     x11_volume="/tmp/.X11-unix:/tmp/.X11-unix:rw",
+    x11_authority_volume="$HOME/.Xauthority:/root/.Xauthority:rw",
 ):
     volumes = compose_data["services"][service_name]["volumes"]
     # Handle X11 socket mounting
@@ -558,6 +559,7 @@ def generate_x11_configuration(
     if x11:
         if x11_volume not in volumes:
             volumes.append(x11_volume)
+            volumes.append(x11_authority_volume)
             logging.debug(f"Added X11 socket mount for service '{service_name}'")
         # Reference: https://github.com/mviereck/x11docker/wiki/Short-setups-to-provide-X-display-to-container
         logging.debug("Use host IPC")
