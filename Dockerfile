@@ -174,7 +174,8 @@ RUN \
     export NVM_DIR=~/.config/nvm && mkdir -p ${NVM_DIR} && \
     PROFILE=/dev/null bash -c 'wget -qO- "https://github.com/nvm-sh/nvm/raw/master/install.sh" | bash' && \
     # Load nvm and install the latest lts nodejs
-    . "${NVM_DIR}/nvm.sh" && nvm install --lts node
+    . "${NVM_DIR}/nvm.sh" && nvm install --lts node && \
+    npm install -g tree-sitter-cli
 
 # Install mamba and conda
 RUN cd ${XDG_PREFIX_HOME} && \

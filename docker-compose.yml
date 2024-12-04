@@ -29,14 +29,6 @@ services:
         limits:
           cpus: 14.0
           memory: 15.49G
-        reservations:
-          cpus: 7.0
-          devices:
-          - capabilities:
-            - gpu
-            count: all
-            driver: nvidia
-          memory: 7.74G
     entrypoint:
     - zsh
     - -i
