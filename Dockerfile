@@ -116,7 +116,7 @@ RUN sudo apt-get update && sudo apt-get install -qy --no-install-recommends \
 ARG NEOVIM_VERSION
 RUN if [ ! -z "${NEOVIM_VERSION}" ]; then \
     sudo apt-get update && sudo apt-get install -qy --no-install-recommends \
-    fd-find ripgrep && \
+    fd-find ripgrep wl-clipboard && \
     sudo rm -rf /var/lib/apt/lists/* && \
     wget "https://github.com/neovim/neovim/releases/download/v${NEOVIM_VERSION}/nvim-linux64.tar.gz" -O nvim-linux64.tar.gz && \
     tar -xf nvim-linux64.tar.gz && \

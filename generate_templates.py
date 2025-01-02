@@ -551,7 +551,7 @@ def generate_x11_configuration(
     service_name,
     x11,
     x11_volume="/tmp/.X11-unix:/tmp/.X11-unix:rw",
-    x11_authority_volume="$HOME/.Xauthority:/root/.Xauthority:rw",
+    x11_authority_volume="${HOME}/.Xauthority:/${DOCKER_HOME}/.Xauthority:rw",
 ):
     volumes = compose_data["services"][service_name]["volumes"]
     # Handle X11 socket mounting
