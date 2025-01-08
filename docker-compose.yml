@@ -29,6 +29,9 @@ services:
         limits:
           cpus: 14.0
           memory: 15.49G
+        reservations:
+          cpus: 1.75
+          memory: 1.94G
     entrypoint:
     - zsh
     - -i
@@ -53,8 +56,6 @@ services:
     - ~/Videos:${DOCKER_HOME}/Videos:rw
     - ~/.ssh:${DOCKER_HOME}/.ssh:ro
     - ~/.config/msmtp:${DOCKER_HOME}/.config/msmtp:ro
-    - $XDG_RUNTIME_DIR/$WAYLAND_DISPLAY:/tmp/$WAYLAND_DISPLAY:rw
     - /tmp/.X11-unix:/tmp/.X11-unix:rw
-    - $HOME/.Xauthority:${DOCKER_HOME}/.Xauthority:rw
     - /run/user/1000/bus:/run/user/1000/bus:rw
     - ./entrypoint.sh:/entrypoint.sh:ro

@@ -116,7 +116,7 @@ RUN sudo apt-get update && sudo apt-get install -qy --no-install-recommends \
 ARG NEOVIM_VERSION
 RUN if [ ! -z "${NEOVIM_VERSION}" ]; then \
     sudo apt-get update && sudo apt-get install -qy --no-install-recommends \
-    fd-find ripgrep wl-clipboard fzf && \
+    fd-find ripgrep wl-clipboard && \
     sudo rm -rf /var/lib/apt/lists/* && \
     wget "https://github.com/neovim/neovim/releases/download/v${NEOVIM_VERSION}/nvim-linux64.tar.gz" -O nvim-linux64.tar.gz && \
     tar -xf nvim-linux64.tar.gz && \
@@ -150,35 +150,13 @@ RUN if [ ! -z "${TMUX_GIT_REFERENCE}" ]; then \
     ;fi
 
 RUN \
-    # Install lazygit (the newest version)
     sudo apt-get update && sudo apt-get install -qy --no-install-recommends \
     python3-venv python3-pip && \
     sudo rm -rf /var/lib/apt/lists/* && \
-    LAZYGIT_VERSION=$(curl -s "https://api.github.com/repos/jesseduffield/lazygit/releases/latest" | grep -Po '"tag_name": "v\K[^"]*') && \
-    curl -Lo lazygit.tar.gz "https://github.com/jesseduffield/lazygit/releases/latest/download/lazygit_${LAZYGIT_VERSION}_Linux_x86_64.tar.gz" && \
-    tar xf lazygit.tar.gz lazygit && \
-    install -Dm 755 lazygit ${XDG_PREFIX_HOME}/bin && \
-    rm lazygit.tar.gz lazygit && \
-    # Install starship, a cross-shell prompt tool
-    mkdir -p ${XDG_PREFIX_HOME}/bin && \
-    unset ZSH_VERSION && wget -qO- https://starship.rs/install.sh | /bin/sh -s -- --yes -b ${XDG_PREFIX_HOME}/bin && \
     # Install oh-my-zsh
     sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" && \
-    # Install tpm
-    if [ -n ${http_proxy} && -n ${https_proxy} ]; then \
-    git clone --config http.proxy=${http_proxy} --config https.proxy=${https_proxy} --depth 1 https://github.com/tmux-plugins/tpm ${XDG_PREFIX_HOME}/share/tmux/plugins/tpm; \
-    else \
-    git clone --depth 1 https://github.com/tmux-plugins/tpm ${XDG_PREFIX_HOME}/share/tmux/plugins/tpm; \
-    fi && \
-    # Install nvm, without modification of shell profiles
-    export NVM_DIR=~/.config/nvm && mkdir -p ${NVM_DIR} && \
-    PROFILE=/dev/null bash -c 'wget -qO- "https://github.com/nvm-sh/nvm/raw/master/install.sh" | bash' && \
-    # Load nvm and install the latest lts nodejs
-    . "${NVM_DIR}/nvm.sh" && nvm install --lts node && \
-    npm install -g tree-sitter-cli
-
-# Install mamba and conda
-RUN cd ${XDG_PREFIX_HOME} && \
+    # Install mamba and conda
+    RUN cd ${XDG_PREFIX_HOME} && \
     curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest | tar -xvj bin/micromamba && \
     bin/micromamba config append channels conda-forge && \
     bin/micromamba config set channel_priority strict && \
@@ -244,7 +222,8 @@ RUN cd ~ && \
     git fetch --all && \
     git reset --hard origin/main && \
     git branch -M main && \
-    git branch -u origin/main main
+    git branch -u origin/main main && \
+    git submodule update --init 
 
 # ENV TERM=screen-256color
 ENV TERM=xterm-256color

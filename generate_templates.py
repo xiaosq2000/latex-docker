@@ -185,18 +185,18 @@ def parse_arguments():
     parser.add_argument(
         "--cpu-reservation",
         type=float,
-        default=os.cpu_count() / 4,
+        default=os.cpu_count() / 16,
         help="""Set CPU reservation for the service (e.g., 0.1 for 10%% of a CPU, 1 for one full CPU)
-        (default: %(default)s, quarter of the total resources on the host machine.)
+        (default: %(default)s, 1/16 * total resources on the host machine.)
         """,
     )
 
     parser.add_argument(
         "--memory-reservation",
         type=str,
-        default="{:.2f}G".format(psutil.virtual_memory().total / (1024**3) / 4),
+        default="{:.2f}G".format(psutil.virtual_memory().total / (1024**3) / 16),
         help="""Set memory reservation for the service (e.g., 256M, 1G)
-        (default: %(default)s, quarter of the total resources on the host machine.)
+        (default: %(default)s, 1/16 * total resources on the host machine.)
         """,
     )
 
@@ -219,10 +219,17 @@ def parse_arguments():
     )
 
     parser.add_argument(
-        "--x11-volume",
+        "--x11-socket-volume",
         type=str,
         default="/tmp/.X11-unix:/tmp/.X11-unix:rw",
         help="(default: %(default)s)",
+    )
+
+    parser.add_argument(
+        "--x11-authority-volume",
+        type=str,
+        # default="",
+        # help="(default: %(default)s)",
     )
 
     parser.add_argument(
@@ -550,24 +557,41 @@ def generate_x11_configuration(
     env_file,
     service_name,
     x11,
-    x11_volume="/tmp/.X11-unix:/tmp/.X11-unix:rw",
-    x11_authority_volume="${HOME}/.Xauthority:/${DOCKER_HOME}/.Xauthority:rw",
+    x11_socket_volume,
+    x11_authority_volume,
 ):
     volumes = compose_data["services"][service_name]["volumes"]
     # Handle X11 socket mounting
     manage_content_in_file(env_file, 'DISPLAY="${DISPLAY}"', x11)
+    manage_content_in_file(env_file, 'XAUTHORITY="${XAUTHORITY}"', x11)
+
+    if x11_authority_volume is None:
+        x11_authority_file = os.environ.get("XAUTHORITY")
+        if x11_authority_file is None:
+            logger.error("X11 authority file is not given.")
+        else:
+            x11_authority_volume = f"{x11_authority_file}:{x11_authority_file}:rw"
+
     if x11:
-        if x11_volume not in volumes:
-            volumes.append(x11_volume)
-            volumes.append(x11_authority_volume)
+        if x11_socket_volume not in volumes:
+            volumes.append(x11_socket_volume)
             logging.debug(f"Added X11 socket mount for service '{service_name}'")
+            if x11_authority_volume is not None:
+                volumes.append(x11_authority_volume)
+                logging.debug(
+                    f"Added X11 authority file mount for service '{service_name}'"
+                )
         # Reference: https://github.com/mviereck/x11docker/wiki/Short-setups-to-provide-X-display-to-container
-        logging.debug("Use host IPC")
+        logging.debug("Using host IPC")
         compose_data["services"][service_name]["ipc"] = "host"
     else:
-        if x11_volume in volumes:
-            volumes.remove(x11_volume)
+        if x11_socket_volume in volumes:
+            volumes.remove(x11_socket_volume)
             logging.debug(f"Removed X11 socket mount from service '{service_name}'")
+            volumes.remove(x11_authority_volume)
+            logging.debug(
+                f"Removed X11 authority file mount from service '{service_name}'"
+            )
 
 
 # TODO
@@ -699,7 +723,8 @@ def main():
         compose_data=compose_data,
         env_file=env_file,
         x11=args.x11,
-        x11_volume=args.x11_volume,
+        x11_socket_volume=args.x11_socket_volume,
+        x11_authority_volume=args.x11_authority_volume,
     )
 
     generate_dbus_configuration(
