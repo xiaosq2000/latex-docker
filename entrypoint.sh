@@ -25,10 +25,11 @@ sudo service ssh start
 
 git config --global user.name "Shuqi XIAO"
 git config --global user.email "xiaosq2000@gmail.com"
+git lfs install
 
 cd ~
 git remote set-url origin "git@github.com:xiaosq2000/dotfiles.git"
-git pull
 git submodule update --init
+git pull --recurse-submodules
 
 exec "$@"

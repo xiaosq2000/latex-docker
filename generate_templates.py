@@ -607,7 +607,7 @@ def generate_default_volume_configuration(compose_data, service_name):
             "~/Pictures:${DOCKER_HOME}/Pictures:rw",
             "~/Videos:${DOCKER_HOME}/Videos:rw",
             "~/.ssh:${DOCKER_HOME}/.ssh:ro",
-            "~/.config/msmtp:${DOCKER_HOME}/.config/msmtp:ro",
+            f"{os.environ.get("XDG_RUNTIME_DIR")}:{os.environ.get("XDG_RUNTIME_DIR")}:rw"
         ],
     )
 

@@ -55,7 +55,8 @@ services:
     - ~/Pictures:${DOCKER_HOME}/Pictures:rw
     - ~/Videos:${DOCKER_HOME}/Videos:rw
     - ~/.ssh:${DOCKER_HOME}/.ssh:ro
-    - ~/.config/msmtp:${DOCKER_HOME}/.config/msmtp:ro
+    - /run/user/1000:/run/user/1000:rw
     - /tmp/.X11-unix:/tmp/.X11-unix:rw
+    - /run/user/1000/.mutter-Xwaylandauth.L11YZ2:/run/user/1000/.mutter-Xwaylandauth.L11YZ2:rw
     - /run/user/1000/bus:/run/user/1000/bus:rw
     - ./entrypoint.sh:/entrypoint.sh:ro

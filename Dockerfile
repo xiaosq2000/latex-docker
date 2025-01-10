@@ -92,7 +92,7 @@ WORKDIR ${XDG_PREFIX_HOME}
 
 RUN sudo apt-get update && sudo apt-get install -qy --no-install-recommends \
     wget curl unzip \
-    git neovim vim \
+    git git-lfs neovim vim \
     build-essential autoconf cmake meson ninja-build \
     xauth x11-apps xclip \
     dbus dbus-x11 \
@@ -149,14 +149,14 @@ RUN if [ ! -z "${TMUX_GIT_REFERENCE}" ]; then \
     && sudo rm -fr /var/lib/apt/lists/* \
     ;fi
 
-RUN \
-    sudo apt-get update && sudo apt-get install -qy --no-install-recommends \
+# Install oh-my-zsh
+RUN sudo apt-get update && sudo apt-get install -qy --no-install-recommends \
     python3-venv python3-pip && \
     sudo rm -rf /var/lib/apt/lists/* && \
-    # Install oh-my-zsh
-    sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" && \
-    # Install mamba and conda
-    RUN cd ${XDG_PREFIX_HOME} && \
+    sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+
+# Install mamba and conda
+RUN cd ${XDG_PREFIX_HOME} && \
     curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest | tar -xvj bin/micromamba && \
     bin/micromamba config append channels conda-forge && \
     bin/micromamba config set channel_priority strict && \
@@ -165,6 +165,7 @@ RUN \
     rm Miniconda3-latest-Linux-x86_64.sh && \
     miniconda3/bin/conda config --set auto_activate_base false
 
+# Install msmtp
 ARG MSMTP_VERSION
 RUN if [[ ! -z "${MSMTP_VERSION}" ]]; then \
     sudo apt-get update && sudo apt-get install -qy --no-install-recommends \
@@ -204,8 +205,13 @@ RUN sudo apt-get update && sudo apt-get install -qy --no-install-recommends \
     sudo sed -i "s/^.*Port.*$/Port ${SSH_PORT}/" /etc/ssh/sshd_config
 
 RUN sudo apt-get update && sudo apt-get install -qy --no-install-recommends \
-    libnotify-bin && \
-    sudo rm -rf /var/lib/apt/lists/*
+    # gnome
+    libnotify-bin \
+    # vimtex
+    psmisc \
+    # google-drive-upload
+    file \
+    && sudo rm -rf /var/lib/apt/lists/*
 
 # Typefaces
 RUN mkdir -p ${XDG_DATA_HOME}/fonts
@@ -222,8 +228,8 @@ RUN cd ~ && \
     git fetch --all && \
     git reset --hard origin/main && \
     git branch -M main && \
-    git branch -u origin/main main && \
-    git submodule update --init 
+    git branch -u origin/main main
+# git submodule update --init 
 
 # ENV TERM=screen-256color
 ENV TERM=xterm-256color
