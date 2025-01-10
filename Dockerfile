@@ -194,6 +194,15 @@ RUN if [[ ! -z "${MSMTP_VERSION}" ]]; then \
     ; \
     fi
 
+RUN sudo apt-get update && sudo apt-get install -qy --no-install-recommends \
+    # gnome
+    libnotify-bin \
+    # vimtex
+    psmisc \
+    # google-drive-upload
+    file \
+    && sudo rm -rf /var/lib/apt/lists/*
+
 # set up ssh server
 ARG SSH_PORT
 RUN sudo apt-get update && sudo apt-get install -qy --no-install-recommends \
@@ -203,15 +212,6 @@ RUN sudo apt-get update && sudo apt-get install -qy --no-install-recommends \
     sudo sed -i "s/^.*X11UseLocalhost.*$/X11UseLocalhost no/" /etc/ssh/sshd_config && \
     sudo sed -i "s/^.*PermitUserEnvironment.*$/PermitUserEnvironment yes/" /etc/ssh/sshd_config && \
     sudo sed -i "s/^.*Port.*$/Port ${SSH_PORT}/" /etc/ssh/sshd_config
-
-RUN sudo apt-get update && sudo apt-get install -qy --no-install-recommends \
-    # gnome
-    libnotify-bin \
-    # vimtex
-    psmisc \
-    # google-drive-upload
-    file \
-    && sudo rm -rf /var/lib/apt/lists/*
 
 # Typefaces
 RUN mkdir -p ${XDG_DATA_HOME}/fonts
