@@ -8,7 +8,7 @@ import logging
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+    level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -163,6 +163,43 @@ def parse_arguments():
     )
 
     parser.add_argument(
+        "--wayland",
+        action="store_true",
+        help="Set environment variables and mount socket related with Wayland",
+    )
+
+    parser.add_argument(
+        "--x11",
+        action="store_true",
+        help="Set environment variables and mount socket related with X11",
+    )
+
+    parser.add_argument(
+        "--dbus",
+        action="store_true",
+        help="Set environment variables and mount socket related with DBus",
+    )
+
+    parser.add_argument(
+        "--kitty",
+        action="store_true",
+        help="Mount kitty socket",
+    )
+
+    parser.add_argument(
+        "--entrypoint",
+        action="store_true",
+        help="Use an external entrypoint shell script",
+    )
+
+    parser.add_argument(
+        "--x11-socket-volume",
+        type=str,
+        default="/tmp/.X11-unix:/tmp/.X11-unix:rw",
+        help="(default: %(default)s)",
+    )
+
+    parser.add_argument(
         "--cpu-limit",
         type=float,
         default=os.cpu_count() / 2,
@@ -201,31 +238,6 @@ def parse_arguments():
     )
 
     parser.add_argument(
-        "--wayland",
-        action="store_true",
-        help="Set environment variables and mount socket related with Wayland",
-    )
-
-    parser.add_argument(
-        "--x11",
-        action="store_true",
-        help="Set environment variables and mount socket related with X11",
-    )
-
-    parser.add_argument(
-        "--dbus",
-        action="store_true",
-        help="Set environment variables and mount socket related with DBus",
-    )
-
-    parser.add_argument(
-        "--x11-socket-volume",
-        type=str,
-        default="/tmp/.X11-unix:/tmp/.X11-unix:rw",
-        help="(default: %(default)s)",
-    )
-
-    parser.add_argument(
         "--x11-authority-volume",
         type=str,
         # default="",
@@ -250,12 +262,6 @@ def parse_arguments():
         "--volumes-append",
         type=str,
         nargs="+",
-    )
-
-    parser.add_argument(
-        "--entrypoint",
-        action="store_true",
-        help="Use an external entrypoint shell script",
     )
 
     parser.add_argument(
@@ -568,7 +574,8 @@ def generate_x11_configuration(
     if x11_authority_volume is None:
         x11_authority_file = os.environ.get("XAUTHORITY")
         if x11_authority_file is None:
-            logger.error("X11 authority file is not given.")
+            logger.warning("env:XAUTHORITY doesn't exist.")
+            logger.warning("X11 authority file is not given.")
         else:
             x11_authority_volume = f"{x11_authority_file}:{x11_authority_file}:rw"
 
@@ -607,7 +614,7 @@ def generate_default_volume_configuration(compose_data, service_name):
             "~/Pictures:${DOCKER_HOME}/Pictures:rw",
             "~/Videos:${DOCKER_HOME}/Videos:rw",
             "~/.ssh:${DOCKER_HOME}/.ssh:ro",
-            f"{os.environ.get("XDG_RUNTIME_DIR")}:{os.environ.get("XDG_RUNTIME_DIR")}:rw"
+            f"{os.environ.get('XDG_RUNTIME_DIR')}:{os.environ.get('XDG_RUNTIME_DIR')}:rw",
         ],
     )
 
@@ -631,6 +638,20 @@ def generate_dbus_configuration(
         if dbus_volume in volumes:
             volumes.remove(dbus_volume)
             logger.debug(f"Removed DBus socket mount from service '{service_name}'")
+
+
+def generate_kitty_configuration(compose_data, service_name, env_file, kitty):
+    if kitty:
+        volumes = compose_data["services"][service_name]["volumes"]
+        kitty_listen_on = os.environ.get("KITTY_LISTEN_ON")
+        if kitty_listen_on is None:
+            logger.warning("KITTY_LISTEN_ON is None.")
+        else:
+            # Remove "unix:" prefix if present
+            socket_path = kitty_listen_on.replace("unix:", "")
+            kitty_volume = f"{socket_path}:{socket_path}:rw"
+            volumes.append(kitty_volume)
+            logger.debug(f"Added kitty socket mount for service '{service_name}'")
 
 
 def main():
@@ -733,6 +754,13 @@ def main():
         env_file=env_file,
         dbus=args.dbus,
         dbus_volume=args.dbus_volume,
+    )
+
+    generate_kitty_configuration(
+        service_name=service_name,
+        compose_data=compose_data,
+        env_file=env_file,
+        kitty=args.kitty,
     )
 
     if args.volumes_append is not None:

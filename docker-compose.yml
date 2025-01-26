@@ -31,12 +31,17 @@ services:
           memory: 15.49G
         reservations:
           cpus: 1.75
+          devices:
+          - capabilities:
+            - gpu
+            count: all
+            driver: nvidia
           memory: 1.94G
     entrypoint:
     - zsh
     - -i
     - /entrypoint.sh
-    env_file: ./.env
+    env_file: .env
     extra_hosts:
     - host.docker.internal:host-gateway
     image: latex:latest
@@ -57,6 +62,5 @@ services:
     - ~/.ssh:${DOCKER_HOME}/.ssh:ro
     - /run/user/1000:/run/user/1000:rw
     - /tmp/.X11-unix:/tmp/.X11-unix:rw
-    - /run/user/1000/.mutter-Xwaylandauth.L11YZ2:/run/user/1000/.mutter-Xwaylandauth.L11YZ2:rw
     - /run/user/1000/bus:/run/user/1000/bus:rw
     - ./entrypoint.sh:/entrypoint.sh:ro
