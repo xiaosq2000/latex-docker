@@ -1,3 +1,5 @@
 downloads
 .env
 .env.bak
+
+.autoenv*
