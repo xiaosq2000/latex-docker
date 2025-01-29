@@ -6,10 +6,11 @@ My dockerized LaTeX IDE:
 
 Main utilities:
 
-| Tool | Description |
+| Utilities     | Description |
 |------|-------------|
-| [TeX Live](https://tug.org/texlive/) | TeX Distribution |
-| [Zathura](https://pwmt.org/projects/zathura/) | PDF Viewer |
+| [TeX Live](https://tug.org/texlive/) | Comprehensive TeX Distribution |
+| [Zathura](https://pwmt.org/projects/zathura/) | PDF Viewer for Minimalists |
+| [pdfpc](https://github.com/pdfpc/pdfpc) | GTK-based presentation application |
 | [Neovim](https://neovim.io/) | Text Editor |
 | [VimTex](https://neovim.io/) | Vim Plugin for LaTeX |
 

@@ -201,6 +201,8 @@ RUN sudo apt-get update && sudo apt-get install -qy --no-install-recommends \
     psmisc \
     # google-drive-upload
     file \
+    # pdfpc
+    pdf-presenter-console gstreamer1.0-libav \
     && sudo rm -rf /var/lib/apt/lists/*
 
 # set up ssh server
