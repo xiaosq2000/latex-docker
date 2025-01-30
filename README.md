@@ -40,3 +40,8 @@ python3 generate_templates.py --service-name latex --env-file .env --nvidia --x1
 docker compose up -d 
 docker exec -it latex zsh -i
 ```
+
+## Todo
+
+1. Use jinja2 as template engine.
+2. Support audio. Reference: [How to set up sound w/o x11docker](https://github.com/mviereck/x11docker/wiki/Container-sound:-ALSA-or-Pulseaudio).
