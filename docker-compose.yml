@@ -64,3 +64,5 @@ services:
     - /tmp/.X11-unix:/tmp/.X11-unix:rw
     - /run/user/1000/bus:/run/user/1000/bus:rw
     - ./entrypoint.sh:/entrypoint.sh:ro
+    security_opt:
+      - apparmor:unconfined

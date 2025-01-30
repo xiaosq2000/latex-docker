@@ -202,7 +202,7 @@ RUN sudo apt-get update && sudo apt-get install -qy --no-install-recommends \
     # google-drive-upload
     file \
     # pdfpc
-    pdf-presenter-console gstreamer1.0-libav \
+    pdf-presenter-console gstreamer1.0-gtk3 gstreamer1.0-plugins-base-apps gstreamer1.0-libav  \
     && sudo rm -rf /var/lib/apt/lists/*
 
 # set up ssh server
