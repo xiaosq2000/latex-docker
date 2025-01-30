@@ -302,7 +302,7 @@ def generate_networking_configuration(env_file, compose_data, service_name):
             f"# >>> as services.{service_name}.build.args",
             "BUILDTIME_NETWORK_MODE=host",
             f"# <<< as services.{service_name}.build.args",
-            "RUNTIME_NETWORK_MODE=host",
+            "RUNTIME_NETWORK_MODE=bridge",
         ],
         True,
     )
