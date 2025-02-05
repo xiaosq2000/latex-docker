@@ -233,6 +233,15 @@ RUN cd ~ && \
     git branch -u origin/main main
 # git submodule update --init 
 
+# rose-pine pygment for minted package
+# ref: https://github.com/rose-pine/pygments
+RUN repo="https://github.com/rose-pine/pygments" \
+    latest=$(git ls-remote --tags --refs $repo | sort -t '/' -k 3 -V | tail -n 1 | awk -F / '{print $3}') \
+    version=$(echo $latest | tr -d 'v') \
+    wheel="pygments_rose_pine-${version}-py3-none-any.whl" \
+    release="${repo}/releases/download/${latest}/${wheel}" \
+    pip install $release
+
 # ENV TERM=screen-256color
 ENV TERM=xterm-256color
 SHELL ["zsh", "-ic"]
