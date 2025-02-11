@@ -50,7 +50,6 @@ RUN apt-get update && \
 # Set the parent directory for all dependencies (not installed).
 ARG XDG_PREFIX_DIR=/usr/local
 ENV XDG_PREFIX_DIR=${XDG_PREFIX_DIR}
-
 # Set up a non-root user within the sudo group.
 # Warning: 'sudo' is not recommended in Dockerfile.
 ARG DOCKER_USER 
@@ -83,7 +82,9 @@ RUN sudo ./install-tl -profile=./texlive.profile
 ENV PATH=${XDG_PREFIX_DIR}/texlive/${TEXLIVE_VERSION}/texmf-dist/doc/info:${PATH}
 ENV PATH=${XDG_PREFIX_DIR}/texlive/${TEXLIVE_VERSION}/texmf-dist/doc/man:${PATH}
 ENV PATH=${XDG_PREFIX_DIR}/texlive/${TEXLIVE_VERSION}/bin/x86_64-linux:$PATH
+# RUN sudo ${XDG_PREFIX_DIR}/texlive/${TEXLIVE_VERSION}/bin/x86_64-linux/tlmgr update --self && sudo ${XDG_PREFIX_DIR}/texlive/${TEXLIVE_VERSION}/bin/x86_64-linux/tlmgr update --all
 
+# For 'texdoc'
 ENV PDFVIEWER=zathura
 
 ARG COMPILE_JOBS
@@ -114,15 +115,19 @@ RUN sudo apt-get update && sudo apt-get install -qy --no-install-recommends \
 
 # Neovim
 ARG NEOVIM_VERSION
+ARG NEOVIM_OS="linux"
+ARG NEOVIM_ARCH="x86_64"
+# ref: https://github.com/neovim/neovim/releases/tag/v0.10.4
+# a breaking change of binary releases naming.
 RUN if [ ! -z "${NEOVIM_VERSION}" ]; then \
     sudo apt-get update && sudo apt-get install -qy --no-install-recommends \
     fd-find ripgrep wl-clipboard && \
     sudo rm -rf /var/lib/apt/lists/* && \
-    wget "https://github.com/neovim/neovim/releases/download/v${NEOVIM_VERSION}/nvim-linux64.tar.gz" -O nvim-linux64.tar.gz && \
-    tar -xf nvim-linux64.tar.gz && \
-    export SRC_DIR="${PWD}/nvim-linux64" && export DEST_DIR="${XDG_PREFIX_HOME}" && \
+    wget "https://github.com/neovim/neovim/releases/download/v${NEOVIM_VERSION}/nvim-${NEOVIM_OS}-${NEOVIM_ARCH}.tar.gz" -O nvim-${NEOVIM_OS}-${NEOVIM_ARCH}.tar.gz && \
+    tar -xf nvim-${NEOVIM_OS}-${NEOVIM_ARCH}.tar.gz && \
+    export SRC_DIR="${PWD}/nvim-${NEOVIM_OS}-${NEOVIM_ARCH}" && export DEST_DIR="${XDG_PREFIX_HOME}" && \
     (cd ${SRC_DIR} && find . -type f -exec install -Dm 755 "{}" "${DEST_DIR}/{}" \;) && \
-    rm -r nvim-linux64.tar.gz nvim-linux64 \
+    rm -r nvim-${NEOVIM_OS}-${NEOVIM_ARCH}.tar.gz nvim-${NEOVIM_OS}-${NEOVIM_ARCH} \
     ;else \
     sudo apt-get update && sudo apt-get install -qy --no-install-recommends \
     neovim \
@@ -155,15 +160,15 @@ RUN sudo apt-get update && sudo apt-get install -qy --no-install-recommends \
     sudo rm -rf /var/lib/apt/lists/* && \
     sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
 
-# Install mamba and conda
+# Install conda
 RUN cd ${XDG_PREFIX_HOME} && \
     curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest | tar -xvj bin/micromamba && \
     bin/micromamba config append channels conda-forge && \
-    bin/micromamba config set channel_priority strict && \
-    wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh && \
-    bash Miniconda3-latest-Linux-x86_64.sh -b -p ${XDG_PREFIX_HOME}/miniconda3 && \
-    rm Miniconda3-latest-Linux-x86_64.sh && \
-    miniconda3/bin/conda config --set auto_activate_base false
+    bin/micromamba config set channel_priority strict
+# wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh && \
+# bash Miniconda3-latest-Linux-x86_64.sh -b -p ${XDG_PREFIX_HOME}/miniconda3 && \
+# rm Miniconda3-latest-Linux-x86_64.sh && \
+# miniconda3/bin/conda config --set auto_activate_base false
 
 # Install msmtp
 ARG MSMTP_VERSION
@@ -233,18 +238,9 @@ RUN cd ~ && \
     git branch -u origin/main main
 # git submodule update --init 
 
-# rose-pine pygment for minted package
-# ref: https://github.com/rose-pine/pygments
-RUN repo="https://github.com/rose-pine/pygments" \
-    latest=$(git ls-remote --tags --refs $repo | sort -t '/' -k 3 -V | tail -n 1 | awk -F / '{print $3}') \
-    version=$(echo $latest | tr -d 'v') \
-    wheel="pygments_rose_pine-${version}-py3-none-any.whl" \
-    release="${repo}/releases/download/${latest}/${wheel}" \
-    pip install $release
-
 # ENV TERM=screen-256color
 ENV TERM=xterm-256color
-SHELL ["zsh", "-ic"]
+SHELL ["zsh", "-i"]
 WORKDIR ${DOCKER_HOME}
 
 # Clear environment variables exclusively for building to prevent pollution.
