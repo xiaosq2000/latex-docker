@@ -1,3 +1,6 @@
+networks:
+  latex-network:
+    driver: bridge
 services:
   latex:
     build:
@@ -46,7 +49,8 @@ services:
     - host.docker.internal:host-gateway
     image: latex:latest
     ipc: host
-    network_mode: ${RUNTIME_NETWORK_MODE}
+    networks:
+    - latex-network
     privileged: true
     restart: always
     runtime: nvidia
@@ -55,6 +59,8 @@ services:
     stdin_open: true
     tty: true
     user: ${DOCKER_UID}:${DOCKER_GID}
+    ports:
+      - "22222:22222"
     volumes:
     - ~/Projects:${DOCKER_HOME}/Projects:rw
     - ~/Documents:${DOCKER_HOME}/Documents:rw
@@ -63,10 +69,6 @@ services:
     - ~/Videos:${DOCKER_HOME}/Videos:rw
     - ~/.ssh:${DOCKER_HOME}/.ssh:ro
     - /run/user/1000:/run/user/1000:rw
-    - $XDG_RUNTIME_DIR/$WAYLAND_DISPLAY:/tmp/$WAYLAND_DISPLAY:rw
     - /tmp/.X11-unix:/tmp/.X11-unix:rw
-    - /run/user/1000/.mutter-Xwaylandauth.0CS912:/run/user/1000/.mutter-Xwaylandauth.0CS912:rw
     - /run/user/1000/bus:/run/user/1000/bus:rw
-    - /tmp/kitty-840918:/tmp/kitty-840918:rw
-    - /home/shuqixiao/.local/kitty.app/lib/kitty/terminfo:$DOCKER_HOME/.local/kitty.app/lib/kitty/terminfo:rw
     - ./entrypoint.sh:/entrypoint.sh:ro

@@ -302,7 +302,7 @@ def generate_networking_configuration(env_file, compose_data, service_name):
             f"# >>> as services.{service_name}.build.args",
             "BUILDTIME_NETWORK_MODE=host",
             f"# <<< as services.{service_name}.build.args",
-            "RUNTIME_NETWORK_MODE=bridge",
+            # "RUNTIME_NETWORK_MODE=bridge",
         ],
         True,
     )
@@ -311,10 +311,20 @@ def generate_networking_configuration(env_file, compose_data, service_name):
         ["services", service_name, "build", "network"],
         "${BUILDTIME_NETWORK_MODE}",
     )
+    # nested_set(
+    #     compose_data,
+    #     ["services", service_name, "network_mode"],
+    #     "${RUNTIME_NETWORK_MODE}",
+    # )
     nested_set(
         compose_data,
-        ["services", service_name, "network_mode"],
-        "${RUNTIME_NETWORK_MODE}",
+        ["networks", "latex-network", "driver"],
+        "bridge",
+    )
+    nested_set(
+        compose_data,
+        ["services", service_name, "networks"],
+        ["latex-network"],
     )
     nested_set(
         compose_data,
