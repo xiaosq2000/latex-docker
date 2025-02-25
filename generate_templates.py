@@ -641,6 +641,9 @@ def generate_dbus_configuration(
 
 
 def generate_kitty_configuration(compose_data, service_name, env_file, kitty):
+    manage_content_in_file(env_file, "TERM=xterm-kitty", kitty)
+    manage_content_in_file(env_file, "KITTY_LISTEN_ON=${KITTY_LISTEN_ON}", kitty)
+    manage_content_in_file(env_file, "TERMINFO=$DOCKER_HOME/.local/kitty.app/lib/kitty/terminfo", kitty)
     if kitty:
         volumes = compose_data["services"][service_name]["volumes"]
         kitty_listen_on = os.environ.get("KITTY_LISTEN_ON")
@@ -652,6 +655,16 @@ def generate_kitty_configuration(compose_data, service_name, env_file, kitty):
             kitty_volume = f"{socket_path}:{socket_path}:rw"
             volumes.append(kitty_volume)
             logger.debug(f"Added kitty socket mount for service '{service_name}'")
+
+        terminfo = os.environ.get("TERMINFO")
+        if terminfo is None:
+            logger.warning("TERMINFO is None.")
+        else:
+            terminfo_volume = (
+                f"{terminfo}:$DOCKER_HOME/.local/kitty.app/lib/kitty/terminfo:rw"
+            )
+            volumes.append(terminfo_volume)
+            logger.debug(f"Added kitty terminfo mount for service '{service_name}'")
 
 
 def main():
