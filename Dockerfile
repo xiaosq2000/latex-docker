@@ -225,18 +225,16 @@ RUN mkdir -p ${XDG_DATA_HOME}/fonts
 COPY ./downloads/typefaces/ ${XDG_DATA_HOME}/fonts
 RUN fc-cache -f
 
-# a trick to get rid of using Docker building cache from now on.
-ARG SETUP_FLAG
-
-# dotfiles
-RUN cd ~ && \
-    git init && \
-    git remote add origin https://github.com/xiaosq2000/dotfiles && \
-    git fetch --all && \
-    git reset --hard origin/main && \
-    git branch -M main && \
-    git branch -u origin/main main
-# git submodule update --init 
+RUN curl -fsSL https://raw.githubusercontent.com/xiaosq2000/dotfiles/main/.sh_utils/install.sh | bash
+RUN curl -fsSL https://raw.githubusercontent.com/xiaosq2000/dotfiles/main/.sh_utils/setup.d/starship.sh | zsh
+RUN curl -fsSL https://raw.githubusercontent.com/xiaosq2000/dotfiles/main/.sh_utils/setup.d/rust.sh | zsh
+RUN curl -fsSL https://raw.githubusercontent.com/xiaosq2000/dotfiles/main/.sh_utils/setup.d/node.sh | zsh
+RUN curl -fsSL https://raw.githubusercontent.com/xiaosq2000/dotfiles/main/.sh_utils/setup.d/fzf.sh | zsh
+RUN . $HOME/.cargo/env && curl -fsSL https://raw.githubusercontent.com/xiaosq2000/dotfiles/main/.sh_utils/setup.d/yazi.sh | zsh
+RUN curl -fsSL https://raw.githubusercontent.com/xiaosq2000/dotfiles/main/.sh_utils/setup.d/tpm.sh | zsh
+RUN curl -fsSL https://raw.githubusercontent.com/xiaosq2000/dotfiles/main/.sh_utils/setup.d/google_drive_upload.sh | zsh
+RUN curl -fsSL https://raw.githubusercontent.com/xiaosq2000/dotfiles/main/.sh_utils/setup.d/lazygit.sh | zsh
+RUN curl -fsSL https://raw.githubusercontent.com/xiaosq2000/dotfiles/main/.sh_utils/setup.d/luarocks.sh | zsh
 
 # ENV TERM=screen-256color
 ENV TERM=xterm-256color
